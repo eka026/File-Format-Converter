@@ -1,4 +1,4 @@
-# OpenConvert - Local-First Open Source File Converter
+# File Format Converter - Local-First Open Source File Converter
 
 A hexagonal architecture-based file conversion application built with Go, supporting multiple file format conversions.
 
