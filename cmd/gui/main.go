@@ -17,7 +17,7 @@ func main() {
 	app := gui.NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "OpenConvert",
+		Title:  "File Format Converter",
 		Width:  1024,
 		Height: 768,
 		AssetServer: &assetserver.Options{

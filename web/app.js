@@ -1,4 +1,4 @@
-// OpenConvert Frontend Application
+// File Format Converter Frontend Application
 
 let selectedFiles = [];
 

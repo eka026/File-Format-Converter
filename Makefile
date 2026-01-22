@@ -3,7 +3,7 @@
 # Build CLI
 build-cli:
 	@echo "Building CLI..."
-	@go build -o bin/openconvert-cli ./cmd/cli
+	@go build -o bin/file-format-converter-cli ./cmd/cli
 
 # Build GUI (requires Wails)
 build-gui:
@@ -27,7 +27,7 @@ test:
 
 # Run CLI
 run-cli: build-cli
-	@./bin/openconvert-cli
+	@./bin/file-format-converter-cli
 
 # Run GUI in dev mode
 run-gui:

@@ -40,7 +40,7 @@ This project follows hexagonal (ports and adapters) architecture principles:
 
 ```bash
 # CLI
-go build -o bin/openconvert-cli ./cmd/cli
+go build -o bin/file-format-converter-cli ./cmd/cli
 
 # GUI
 wails build
