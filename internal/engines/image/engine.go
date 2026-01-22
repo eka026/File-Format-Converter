@@ -4,7 +4,7 @@ import (
 	"image"
 	"path/filepath"
 	"github.com/disintegration/imaging"
-	"github.com/openconvert/file-converter/internal/domain"
+	"github.com/eka026/File-Format-Converter/internal/domain"
 )
 
 // ImageEngine implements IConverter for image format conversions

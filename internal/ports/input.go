@@ -2,7 +2,7 @@ package ports
 
 import (
 	"context"
-	"github.com/openconvert/file-converter/internal/domain"
+	"github.com/eka026/File-Format-Converter/internal/domain"
 )
 
 // ConvertPort defines the input port for single file conversion

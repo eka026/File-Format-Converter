@@ -1,8 +1,8 @@
 package document
 
 import (
-	"github.com/openconvert/file-converter/internal/domain"
-	"github.com/openconvert/file-converter/internal/adapters/wasm"
+	"github.com/eka026/File-Format-Converter/internal/domain"
+	"github.com/eka026/File-Format-Converter/internal/adapters/wasm"
 )
 
 // DocumentEngine implements IConverter for document conversions (Word → PDF)

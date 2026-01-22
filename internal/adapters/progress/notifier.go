@@ -1,7 +1,7 @@
 package progress
 
 import (
-	"github.com/openconvert/file-converter/internal/ports"
+	"github.com/eka026/File-Format-Converter/internal/ports"
 )
 
 // ProgressNotifierAdapter implements the ProgressNotifier port

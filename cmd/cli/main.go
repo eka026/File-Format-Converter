@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/openconvert/file-converter/internal/adapters/cli"
+	"github.com/eka026/File-Format-Converter/internal/adapters/cli"
 )
 
 func main() {

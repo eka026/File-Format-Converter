@@ -2,7 +2,7 @@ package spreadsheet
 
 import (
 	"context"
-	"github.com/openconvert/file-converter/internal/adapters/browser"
+	"github.com/eka026/File-Format-Converter/internal/adapters/browser"
 )
 
 // PDFGenerator generates PDF from HTML content

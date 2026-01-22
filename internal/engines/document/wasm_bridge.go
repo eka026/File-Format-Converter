@@ -3,7 +3,7 @@ package document
 import (
 	"context"
 	"os"
-	"github.com/openconvert/file-converter/internal/adapters/wasm"
+	"github.com/eka026/File-Format-Converter/internal/adapters/wasm"
 )
 
 // WasmBridge bridges between the document engine and the WebAssembly runtime

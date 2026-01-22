@@ -7,7 +7,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/openconvert/file-converter/internal/adapters/gui"
+	"github.com/eka026/File-Format-Converter/internal/adapters/gui"
 )
 
 //go:embed all:../../web

@@ -1,7 +1,7 @@
 package engines
 
 import (
-	"github.com/openconvert/file-converter/internal/domain"
+	"github.com/eka026/File-Format-Converter/internal/domain"
 )
 
 // Registry manages conversion engines

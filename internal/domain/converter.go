@@ -2,7 +2,7 @@ package domain
 
 import (
 	"context"
-	"github.com/openconvert/file-converter/internal/ports"
+	"github.com/eka026/File-Format-Converter/internal/ports"
 )
 
 // ConverterService is the orchestrator that manages the conversion process
