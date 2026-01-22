@@ -1,23 +1,19 @@
 package domain
 
-import (
-	"github.com/eka026/File-Format-Converter/internal/ports"
-)
-
 // ConverterService orchestrates the conversion process
 type ConverterService struct {
 	engines         map[FileType]IConverter
-	logger          ports.ILogger
-	progressNotifier ports.IProgressNotifier
-	fileWriter      ports.IFileWriter
+	logger          Logger
+	progressNotifier ProgressNotifier
+	fileWriter      FileWriter
 }
 
 // NewConverterService creates a new converter service
 func NewConverterService(
 	engines map[FileType]IConverter,
-	logger ports.ILogger,
-	progressNotifier ports.IProgressNotifier,
-	fileWriter ports.IFileWriter,
+	logger Logger,
+	progressNotifier ProgressNotifier,
+	fileWriter FileWriter,
 ) *ConverterService {
 	return &ConverterService{
 		engines:         engines,

@@ -6,7 +6,7 @@ A hexagonal architecture-based file conversion application built with Go, suppor
 
 This project follows hexagonal (ports and adapters) architecture principles:
 
-- **Driving Adapters**: GUI (Wails) and CLI (Cobra)
+- **Driving Adapters**: GUI (Wails)
 - **Domain Core**: Pure Go business logic
 - **Driven Adapters**: Filesystem, WebAssembly runtime, Headless browser
 
@@ -14,15 +14,14 @@ This project follows hexagonal (ports and adapters) architecture principles:
 
 ```
 .
-├── cmd/                    # Application entry points
-│   ├── cli/               # CLI adapter (Cobra)
-│   └── gui/               # GUI adapter (Wails)
+├── main.go                # Application entry point (Wails GUI)
 ├── internal/
 │   ├── domain/            # Core business logic
 │   ├── ports/             # Input and output ports
 │   ├── adapters/          # Driving and driven adapters
 │   └── engines/           # Conversion engines
 ├── web/                   # Wails frontend (HTML/CSS/JS)
+├── frontend/              # Wails-generated TypeScript bindings
 ├── wasm/                  # WebAssembly modules
 └── docs/                  # Documentation
 
@@ -39,11 +38,17 @@ This project follows hexagonal (ports and adapters) architecture principles:
 ## Building
 
 ```bash
-# CLI
-go build -o bin/file-format-converter-cli ./cmd/cli
-
-# GUI
+# Build GUI application
 wails build
+
+# Run in development mode
+wails dev
+
+# Or use Makefile
+make build    # Build
+make run      # Run in dev mode
+make test     # Run tests
+make clean    # Clean build artifacts
 ```
 
 ## License

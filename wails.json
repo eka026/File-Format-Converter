@@ -1,0 +1,24 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "File Format Converter",
+  "outputfilename": "file-format-converter",
+  "appdir": ".",
+  "main": "main.go",
+  "frontend": {
+    "dir": "./web",
+    "install": "",
+    "build": "",
+    "bridge": "app.js",
+    "serve": ""
+  },
+  "author": {
+    "name": "",
+    "email": ""
+  },
+  "info": {
+    "productName": "File Format Converter",
+    "productVersion": "1.0.0",
+    "copyright": "",
+    "comments": "Local-first file converter for Excel, Word, and Image files"
+  }
+}

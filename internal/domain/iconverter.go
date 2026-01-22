@@ -9,10 +9,3 @@ type IConverter interface {
 	Validate(file string) error
 }
 
-// Format represents a file format
-type Format struct {
-	Extension string
-	Name      string
-	MimeType  string
-}
-

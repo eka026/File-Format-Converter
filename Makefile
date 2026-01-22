@@ -1,17 +1,9 @@
-.PHONY: build-cli build-gui build-all clean test run-cli run-gui
-
-# Build CLI
-build-cli:
-	@echo "Building CLI..."
-	@go build -o bin/file-format-converter-cli ./cmd/cli
+.PHONY: build clean test run
 
 # Build GUI (requires Wails)
-build-gui:
+build:
 	@echo "Building GUI..."
 	@wails build
-
-# Build both
-build-all: build-cli build-gui
 
 # Clean build artifacts
 clean:
@@ -25,12 +17,8 @@ test:
 	@echo "Running tests..."
 	@go test ./...
 
-# Run CLI
-run-cli: build-cli
-	@./bin/file-format-converter-cli
-
 # Run GUI in dev mode
-run-gui:
+run:
 	@wails dev
 
 # Install dependencies

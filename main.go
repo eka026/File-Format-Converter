@@ -1,16 +1,15 @@
 package main
 
 import (
-	"context"
 	"embed"
 
+	"github.com/eka026/File-Format-Converter/internal/adapters/gui"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/eka026/File-Format-Converter/internal/adapters/gui"
 )
 
-//go:embed all:../../web
+//go:embed all:web
 var assets embed.FS
 
 func main() {
@@ -27,10 +26,10 @@ func main() {
 		OnStartup:        app.OnStartup,
 		OnDomReady:       app.OnDomReady,
 		OnShutdown:       app.OnShutdown,
+		Bind:             []interface{}{app},
 	})
 
 	if err != nil {
 		println("Error:", err.Error())
 	}
 }
-

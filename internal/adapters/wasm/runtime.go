@@ -10,7 +10,8 @@ import (
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
-//go:embed pandoc.wasm
+// TODO: Embed pandoc.wasm when available
+//go:embed
 var wasmFiles embed.FS
 
 // WazeroRuntime provides WebAssembly runtime functionality
