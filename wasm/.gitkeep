@@ -1,0 +1,3 @@
+# Place pandoc.wasm file here
+# The file will be embedded using //go:embed in the wasm runtime adapter
+

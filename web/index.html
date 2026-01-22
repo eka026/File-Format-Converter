@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenConvert - File Converter</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>OpenConvert</h1>
+            <p>Local-First Open Source File Converter</p>
+        </header>
+
+        <main>
+            <!-- Drag & Drop Zone -->
+            <div id="dropZone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p>Drag & Drop files here</p>
+                    <p class="hint">or click to browse</p>
+                </div>
+                <input type="file" id="fileInput" multiple style="display: none;">
+            </div>
+
+            <!-- File List -->
+            <div id="fileList" class="file-list" style="display: none;">
+                <h2>Selected Files</h2>
+                <ul id="fileItems"></ul>
+            </div>
+
+            <!-- Target Format Selection -->
+            <div class="format-selection">
+                <label for="targetFormat">Convert to:</label>
+                <select id="targetFormat">
+                    <option value="pdf">PDF</option>
+                    <option value="webp">WebP</option>
+                    <option value="png">PNG</option>
+                    <option value="jpg">JPG</option>
+                </select>
+            </div>
+
+            <!-- Convert Button -->
+            <button id="convertButton" class="convert-button" disabled>
+                Convert Files
+            </button>
+
+            <!-- Progress Bar -->
+            <div id="progressContainer" class="progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <p id="progressText" class="progress-text">0%</p>
+            </div>
+
+            <!-- Results -->
+            <div id="results" class="results"></div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
