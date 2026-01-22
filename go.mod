@@ -1,4 +1,4 @@
-module github.com/openconvert/file-converter
+module github.com/eka026/File-Format-Converter
 
 go 1.21
 
