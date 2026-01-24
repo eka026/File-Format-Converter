@@ -35,6 +35,17 @@ This project follows hexagonal (ports and adapters) architecture principles:
 - Batch processing
 - Progress tracking
 
+## Data Sovereignty (NFR-01)
+
+**This application is designed with data sovereignty as a core principle.** All file processing occurs entirely locally on your machine. The application:
+
+- ✅ **Does NOT transmit** any file data to external servers
+- ✅ **Does NOT send** metadata or telemetry to external services
+- ✅ **Does NOT require** internet connection for file conversion
+- ✅ **Processes all files** locally using only local system resources
+
+All conversion operations are performed using local libraries and system tools. No data leaves your device during the conversion process.
+
 ## Building
 
 ```bash

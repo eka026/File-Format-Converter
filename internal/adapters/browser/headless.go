@@ -91,19 +91,22 @@ func findChromeExecutable() (string, error) {
 }
 
 // NewHeadlessBrowser creates a new headless browser adapter
+// NFR-01 Compliance: This function only uses locally installed browsers.
+// It will NOT download Chromium or any other browser binaries from the internet.
+// If no local browser is found, it returns an error to maintain data sovereignty.
 func NewHeadlessBrowser() (*HeadlessBrowser, error) {
-	var l *launcher.Launcher
-
-	// First, try to find existing Chrome/Chromium installation
+	// NFR-01 (Data Sovereignty): Only use locally installed browsers.
+	// Do not allow auto-download of browser binaries from external servers.
 	chromePath, err := findChromeExecutable()
-	if err == nil {
-		// Use existing Chrome installation
-		l = launcher.New().Bin(chromePath)
-	} else {
-		// Try to use launcher's auto-download feature
-		// This will attempt to download Chromium if not found
-		l = launcher.New()
+	if err != nil {
+		return nil, fmt.Errorf("no local browser found: %w\n\n"+
+			"Please install Chrome, Chromium, or Edge locally. "+
+			"The application does not download browsers from the internet to maintain data sovereignty. "+
+			"You can install Chrome from: https://www.google.com/chrome/", err)
 	}
+
+	// Use only the locally found Chrome/Chromium installation
+	l := launcher.New().Bin(chromePath)
 
 	// Configure launcher
 	l = l.
@@ -116,8 +119,9 @@ func NewHeadlessBrowser() (*HeadlessBrowser, error) {
 	if err != nil {
 		// Provide helpful error message
 		return nil, fmt.Errorf("failed to launch browser: %w\n\n"+
-			"Please ensure Chrome, Chromium, or Edge is installed, or check your internet connection "+
-			"for automatic Chromium download. You can install Chrome from: https://www.google.com/chrome/", err)
+			"Please ensure Chrome, Chromium, or Edge is installed locally. "+
+			"The application only uses locally installed browsers to maintain data sovereignty. "+
+			"You can install Chrome from: https://www.google.com/chrome/", err)
 	}
 
 	browser := rod.New().ControlURL(url)

@@ -1,7 +1,7 @@
-.PHONY: build clean test run
+.PHONY: build clean test run govulncheck
 
 # Build GUI (requires Wails)
-build:
+build: govulncheck
 	@echo "Building GUI..."
 	@wails build
 
@@ -26,4 +26,11 @@ deps:
 	@echo "Installing dependencies..."
 	@go mod download
 	@go mod tidy
+
+# Run vulnerability scanning (NFR-03)
+govulncheck:
+	@echo "Running vulnerability scan..."
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
+	@$(shell go env GOPATH)/bin/govulncheck.exe ./... 2>NUL || $(shell go env GOPATH)/bin/govulncheck ./...
+	@echo "Vulnerability scan passed."
 

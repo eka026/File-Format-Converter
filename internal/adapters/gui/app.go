@@ -1,5 +1,9 @@
 package gui
 
+// NFR-01 (Data Sovereignty): This GUI adapter handles all file operations locally.
+// No file data, metadata, or telemetry is transmitted to external servers.
+// All file I/O operations use the local filesystem only.
+
 import (
 	"context"
 	"fmt"

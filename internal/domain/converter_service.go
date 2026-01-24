@@ -1,5 +1,9 @@
 package domain
 
+// NFR-01 (Data Sovereignty): All file conversion operations in this service
+// are performed locally. No file data, metadata, or telemetry is transmitted
+// to external servers. All processing uses local system resources only.
+
 import (
 	"context"
 	"fmt"
@@ -9,6 +13,7 @@ import (
 )
 
 // ConverterService orchestrates the conversion process
+// All operations are performed locally - no external data transmission
 type ConverterService struct {
 	engines          map[FileType]IConverter
 	logger           Logger

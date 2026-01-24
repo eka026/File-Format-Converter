@@ -1,5 +1,8 @@
 package main
 
+// NFR-01 (Data Sovereignty): This application does not transmit any file data,
+// metadata, or telemetry to external servers. All processing occurs locally.
+
 import (
 	"embed"
 

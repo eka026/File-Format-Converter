@@ -1,11 +1,15 @@
 package filesystem
 
+// NFR-01 (Data Sovereignty): This filesystem adapter performs all file operations
+// locally. No file data is transmitted to external servers.
+
 import (
 	"os"
 	"github.com/eka026/File-Format-Converter/internal/ports"
 )
 
 // FileSystemWriter implements the FileWriter port
+// All operations use local filesystem only - no network operations
 type FileSystemWriter struct{}
 
 // NewFileSystemWriter creates a new filesystem writer adapter
