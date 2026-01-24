@@ -12,7 +12,6 @@ func DefaultConfig() *Config {
 	return &Config{
 		LogLevel:      "info",
 		WorkerPoolSize: 0, // 0 means use NumCPU
-		WasmPath:      "wasm/pandoc.wasm",
 	}
 }
 

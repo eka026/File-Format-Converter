@@ -6,6 +6,8 @@ export function BatchConvertFiles(arg1:Array<string>,arg2:string):Promise<Array<
 
 export function CleanupTempFiles():Promise<void>;
 
+export function CleanupTempInputFile(arg1:string):Promise<void>;
+
 export function ConvertFile(arg1:string,arg2:string):Promise<gui.ConversionResult>;
 
 export function ConvertFileWithPath(arg1:string,arg2:string,arg3:string):Promise<gui.ConversionResult>;

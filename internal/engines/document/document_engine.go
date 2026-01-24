@@ -1,57 +1,98 @@
 package document
 
 import (
+	"context"
+	"fmt"
+	"os"
+
 	"github.com/eka026/File-Format-Converter/internal/domain"
-	"github.com/eka026/File-Format-Converter/internal/ports"
+	"github.com/eka026/File-Format-Converter/internal/adapters/browser"
 )
 
-// DocumentEngine implements IConverter for document conversions
+// DocumentEngine implements IConverter for document conversions using pure Go
+// Follows the same pattern as SpreadsheetEngine: Parse → HTML → PDF
 type DocumentEngine struct {
-	wasmRuntime  ports.IWasmRuntime
-	pandocBinary []byte
-	pdfGenerator ports.IPDFGenerator
+	parser       *DocxParser
+	htmlRenderer *HTMLRenderer
+	pdfGenerator *browser.HeadlessBrowser
 }
 
 // NewDocumentEngine creates a new document conversion engine
-func NewDocumentEngine(
-	wasmRuntime ports.IWasmRuntime,
-	pandocBinary []byte,
-	pdfGenerator ports.IPDFGenerator,
-) ports.IConverter {
+// Uses pure Go DOCX parsing (no WASM, no CGO dependencies)
+func NewDocumentEngine(pdfGenerator *browser.HeadlessBrowser) domain.IConverter {
 	return &DocumentEngine{
-		wasmRuntime:  wasmRuntime,
-		pandocBinary: pandocBinary,
+		parser:       NewDocxParser(),
+		htmlRenderer: NewHTMLRenderer(),
 		pdfGenerator: pdfGenerator,
 	}
 }
 
-// Convert performs the conversion from input to output format
-func (e *DocumentEngine) Convert(input []byte, outputFormat domain.Format) []byte {
-	// Implementation will be added
-	return nil
+// Convert converts a DOCX file to the specified output format
+// Input and output are file paths (matches domain.IConverter interface)
+func (e *DocumentEngine) Convert(input, output string) error {
+	// Read DOCX file
+	docxData, err := os.ReadFile(input)
+	if err != nil {
+		return fmt.Errorf("reading docx file: %w", err)
+	}
+
+	// Parse DOCX file
+	doc, err := e.parser.Parse(docxData)
+	if err != nil {
+		return fmt.Errorf("parsing docx: %w", err)
+	}
+
+	// Convert to HTML
+	htmlContent := e.htmlRenderer.Render(doc)
+
+	// Determine output format from file extension
+	outputExt := getFileExtension(output)
+	if outputExt == ".html" || outputExt == ".htm" {
+		// Write HTML directly
+		return os.WriteFile(output, []byte(htmlContent), 0644)
+	}
+
+	// For PDF, use headless browser
+	if outputExt == ".pdf" {
+		if e.pdfGenerator == nil {
+			return fmt.Errorf("pdf generator not available")
+		}
+		ctx := context.Background()
+		return e.pdfGenerator.GeneratePDFFromHTML(ctx, htmlContent, output)
+	}
+
+	return fmt.Errorf("unsupported output format: %s", outputExt)
+}
+
+// getFileExtension extracts file extension in lowercase
+func getFileExtension(filename string) string {
+	ext := filename
+	if len(filename) > 0 {
+		for i := len(filename) - 1; i >= 0; i-- {
+			if filename[i] == '.' {
+				ext = filename[i:]
+				break
+			}
+			if filename[i] == '/' || filename[i] == '\\' {
+				break
+			}
+		}
+	}
+	// Convert to lowercase for comparison
+	result := ""
+	for _, r := range ext {
+		if r >= 'A' && r <= 'Z' {
+			result += string(r + 32)
+		} else {
+			result += string(r)
+		}
+	}
+	return result
 }
 
 // Validate checks if the input file is valid for this converter
-func (e *DocumentEngine) Validate(file string) domain.ValidationResult {
-	// Implementation will be added
-	return domain.ValidationResult{}
+func (e *DocumentEngine) Validate(file string) error {
+	return validateDOCX(file)
 }
 
-// GetSupportedInputTypes returns the input file types this converter supports
-func (e *DocumentEngine) GetSupportedInputTypes() []domain.FileType {
-	// Implementation will be added
-	return nil
-}
-
-// GetSupportedOutputTypes returns the output formats this converter supports
-func (e *DocumentEngine) GetSupportedOutputTypes() []domain.Format {
-	// Implementation will be added
-	return nil
-}
-
-// executePandoc executes pandoc with the given DOCX input
-func (e *DocumentEngine) executePandoc(docx []byte) string {
-	// Implementation will be added
-	return ""
-}
 

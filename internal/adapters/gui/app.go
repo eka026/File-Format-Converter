@@ -12,6 +12,7 @@ import (
 
 	"github.com/eka026/File-Format-Converter/internal/adapters/browser"
 	"github.com/eka026/File-Format-Converter/internal/domain"
+	"github.com/eka026/File-Format-Converter/internal/engines/document"
 	"github.com/eka026/File-Format-Converter/internal/engines/spreadsheet"
 )
 
@@ -97,11 +98,14 @@ func (a *App) ConvertFileWithPath(sourcePath, targetFormat, outputPath string) C
 			}
 		}
 
-		// For now, return success for validation
-		// Conversion will be implemented separately
-		return ConversionResult{
-			Success: false,
-			Error:   "DOCX file validation passed, but conversion is not yet implemented",
+		// Initialize document engine if not already initialized
+		if a.documentEngine == nil {
+			if err := a.initializeDocumentEngine(); err != nil {
+				return ConversionResult{
+					Success: false,
+					Error:   fmt.Sprintf("Failed to initialize document engine: %v", err),
+				}
+			}
 		}
 	} else if fileType == domain.FileTypeXLSX {
 		// Handle XLSX files with spreadsheet engine
@@ -364,15 +368,22 @@ func (a *App) initializeSpreadsheetEngine() error {
 }
 
 // initializeDocumentEngine initializes the document conversion engine
-// Note: This is currently disabled due to conflicting NewDocumentEngine implementations
-// in the document package. Validation is handled separately in validateDOCXFile.
+// Uses pure Go DOCX parsing + HTML rendering + headless browser for PDF generation
 func (a *App) initializeDocumentEngine() error {
-	// TODO: Resolve conflict between document/engine.go and document/document_engine.go
-	// Both have NewDocumentEngine with different signatures
-	// For now, document engine initialization is skipped
-	// Validation is handled by validateDOCXFile which satisfies FR-05
+	if a.headlessBrowser == nil {
+		browser, err := browser.NewHeadlessBrowser()
+		if err != nil {
+			return fmt.Errorf("failed to create headless browser: %w", err)
+		}
+		a.headlessBrowser = browser
+	}
 
-	return fmt.Errorf("document engine initialization not yet implemented due to package conflicts")
+	// Create document engine with pure Go approach (no WASM)
+	// Uses the same headless browser as spreadsheet engine
+	engine := document.NewDocumentEngine(a.headlessBrowser)
+	a.documentEngine = engine
+
+	return nil
 }
 
 // detectFileType detects the file type from the file extension
@@ -474,6 +485,11 @@ func (a *App) DeleteTempFile(filePath string) error {
 		return fmt.Errorf("file is not in temp directory, refusing to delete")
 	}
 	return os.Remove(filePath)
+}
+
+// CleanupTempInputFile deletes a temporary input file (alias for DeleteTempFile for frontend compatibility)
+func (a *App) CleanupTempInputFile(filePath string) error {
+	return a.DeleteTempFile(filePath)
 }
 
 // CleanupTempFiles removes all files in the temp directory

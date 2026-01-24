@@ -10,6 +10,10 @@ export function CleanupTempFiles() {
   return window['go']['gui']['App']['CleanupTempFiles']();
 }
 
+export function CleanupTempInputFile(arg1) {
+  return window['go']['gui']['App']['CleanupTempInputFile'](arg1);
+}
+
 export function ConvertFile(arg1, arg2) {
   return window['go']['gui']['App']['ConvertFile'](arg1, arg2);
 }

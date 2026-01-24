@@ -43,15 +43,6 @@ type ILogger interface {
 	Debug(msg string)
 }
 
-// IWasmRuntime defines the output port for WebAssembly runtime operations
-type IWasmRuntime interface {
-	// Execute executes a WebAssembly module with input data
-	Execute(wasm []byte, input []byte) []byte
-	
-	// IsSandboxed returns whether the runtime is sandboxed
-	IsSandboxed() bool
-}
-
 // IPDFGenerator defines the output port for PDF generation operations
 type IPDFGenerator interface {
 	// GenerateFromHTML generates a PDF from HTML content
