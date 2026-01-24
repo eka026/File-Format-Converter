@@ -2,7 +2,6 @@
 
 let selectedFiles = [];
 
-// Initialize drag and drop
 document.addEventListener('DOMContentLoaded', () => {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -100,4 +99,3 @@ document.addEventListener('DOMContentLoaded', () => {
         updateFileList();
     }
 });
-

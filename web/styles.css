@@ -1,3 +1,143 @@
+/* ==========================================================================
+   File Format Converter - Modern Design System
+   Clean Black-White Theme with Layered Token Architecture
+   ========================================================================== */
+
+/* ==========================================================================
+   LAYER 1: PRIMITIVE TOKENS
+   Pure grayscale palette using oklch()
+   ========================================================================== */
+:root {
+    /* Grayscale Primitives - Pure black to white */
+    --primitive-gray-0: oklch(100% 0 0);      /* Pure white */
+    --primitive-gray-50: oklch(98% 0 0);
+    --primitive-gray-100: oklch(96% 0 0);
+    --primitive-gray-200: oklch(92% 0 0);
+    --primitive-gray-300: oklch(86% 0 0);
+    --primitive-gray-400: oklch(70% 0 0);
+    --primitive-gray-500: oklch(55% 0 0);
+    --primitive-gray-600: oklch(45% 0 0);
+    --primitive-gray-700: oklch(35% 0 0);
+    --primitive-gray-800: oklch(25% 0 0);
+    --primitive-gray-900: oklch(15% 0 0);
+    --primitive-gray-950: oklch(10% 0 0);
+    --primitive-gray-1000: oklch(0% 0 0);     /* Pure black */
+
+    /* Status Colors - Minimal saturation */
+    --primitive-green-500: oklch(62% 0.10 145);
+    --primitive-green-600: oklch(52% 0.08 145);
+    --primitive-red-500: oklch(55% 0.12 25);
+    --primitive-red-600: oklch(48% 0.10 25);
+}
+
+/* ==========================================================================
+   LAYER 2: SEMANTIC TOKENS
+   Functional naming by purpose
+   ========================================================================== */
+:root {
+    /* === SURFACES === */
+    --surface-base: var(--primitive-gray-0);
+    --surface-raised: var(--primitive-gray-50);
+    --surface-overlay: var(--primitive-gray-100);
+    --surface-sunken: var(--primitive-gray-100);
+    --surface-brand: var(--primitive-gray-900);
+    --surface-interactive: var(--primitive-gray-100);
+    --surface-interactive-hover: var(--primitive-gray-200);
+    --surface-interactive-active: var(--primitive-gray-300);
+    --surface-success-subtle: oklch(96% 0.02 145);
+    --surface-error-subtle: oklch(96% 0.02 25);
+
+    /* === TEXT COLORS === */
+    --text-primary: var(--primitive-gray-900);
+    --text-secondary: var(--primitive-gray-600);
+    --text-tertiary: var(--primitive-gray-500);
+    --text-on-brand: var(--primitive-gray-0);
+    --text-success: var(--primitive-green-600);
+    --text-error: var(--primitive-red-600);
+
+    /* === BORDERS === */
+    --border-default: var(--primitive-gray-200);
+    --border-subtle: var(--primitive-gray-100);
+    --border-strong: var(--primitive-gray-300);
+    --border-interactive: var(--primitive-gray-400);
+    --border-interactive-hover: var(--primitive-gray-600);
+    --border-success: var(--primitive-green-500);
+    --border-error: var(--primitive-red-500);
+
+    /* === INTERACTIVE STATES === */
+    --interactive-primary: var(--primitive-gray-900);
+    --interactive-primary-hover: var(--primitive-gray-1000);
+
+    /* === SHADOWS === */
+    --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.05);
+    --shadow-md: 0 4px 6px oklch(0% 0 0 / 0.07), 0 2px 4px oklch(0% 0 0 / 0.05);
+    --shadow-lg: 0 10px 15px oklch(0% 0 0 / 0.1), 0 4px 6px oklch(0% 0 0 / 0.05);
+    --shadow-xl: 0 20px 25px oklch(0% 0 0 / 0.15), 0 8px 10px oklch(0% 0 0 / 0.1);
+
+    /* === FOCUS STATES === */
+    --focus-ring: 0 0 0 3px oklch(0% 0 0 / 0.2);
+
+    /* === SPACING & SIZING === */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+
+    /* === TRANSITIONS === */
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+    --transition-slow: 350ms ease;
+}
+
+/* ==========================================================================
+   LAYER 3: COMPONENT TOKENS
+   ========================================================================== */
+:root {
+    /* Header */
+    --header-bg: var(--surface-base);
+    --header-text: var(--text-primary);
+
+    /* Drop Zone */
+    --dropzone-bg: var(--surface-interactive);
+    --dropzone-bg-hover: var(--surface-interactive-hover);
+    --dropzone-bg-active: var(--surface-interactive-active);
+    --dropzone-border: var(--border-interactive);
+    --dropzone-border-active: var(--border-interactive-hover);
+    --dropzone-icon: var(--primitive-gray-600);
+
+    /* File List */
+    --filelist-bg: var(--surface-raised);
+    --fileitem-bg: var(--surface-base);
+    --fileitem-text: var(--text-primary);
+
+    /* Button */
+    --button-primary-bg: var(--interactive-primary);
+    --button-primary-bg-hover: var(--interactive-primary-hover);
+    --button-primary-text: var(--text-on-brand);
+
+    /* Progress */
+    --progress-track: var(--surface-sunken);
+    --progress-fill: var(--interactive-primary);
+
+    /* Result */
+    --result-success-bg: var(--surface-success-subtle);
+    --result-success-border: var(--border-success);
+    --result-success-text: var(--text-success);
+    --result-error-bg: var(--surface-error-subtle);
+    --result-error-border: var(--border-error);
+    --result-error-text: var(--text-error);
+
+    /* Form */
+    --input-bg: var(--surface-base);
+    --input-border: var(--border-default);
+    --input-border-focus: var(--border-interactive);
+    --input-text: var(--text-primary);
+}
+
+/* ==========================================================================
+   BASE STYLES
+   ========================================================================== */
 * {
     margin: 0;
     padding: 0;
@@ -6,23 +146,30 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--primitive-gray-200);
     min-height: 100vh;
     padding: 20px;
+    color: var(--text-primary);
 }
 
+/* ==========================================================================
+   CONTAINER
+   ========================================================================== */
 .container {
     max-width: 800px;
     margin: 0 auto;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    background: var(--surface-base);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
     overflow: hidden;
 }
 
+/* ==========================================================================
+   HEADER
+   ========================================================================== */
 header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--header-bg);
+    color: var(--header-text);
     padding: 30px;
     text-align: center;
 }
@@ -30,6 +177,7 @@ header {
 header h1 {
     font-size: 2.5em;
     margin-bottom: 10px;
+    font-weight: 700;
 }
 
 header p {
@@ -37,57 +185,74 @@ header p {
     font-size: 1.1em;
 }
 
+/* ==========================================================================
+   MAIN CONTENT
+   ========================================================================== */
 main {
     padding: 30px;
+    background: var(--surface-base);
 }
 
+/* ==========================================================================
+   DROP ZONE
+   ========================================================================== */
 .drop-zone {
-    border: 3px dashed #667eea;
-    border-radius: 12px;
+    border: 3px dashed var(--dropzone-border);
+    border-radius: var(--radius-lg);
     padding: 60px 20px;
     text-align: center;
     cursor: pointer;
-    transition: all 0.3s ease;
-    background: #f8f9ff;
+    transition: all var(--transition-normal);
+    background: var(--dropzone-bg);
 }
 
 .drop-zone:hover {
-    border-color: #764ba2;
-    background: #f0f2ff;
+    border-color: var(--dropzone-border-active);
+    background: var(--dropzone-bg-hover);
+}
+
+.drop-zone:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .drop-zone.dragover {
-    border-color: #764ba2;
-    background: #e8ebff;
+    border-color: var(--dropzone-border-active);
+    background: var(--dropzone-bg-active);
     transform: scale(1.02);
 }
 
 .drop-zone-content svg {
-    color: #667eea;
+    color: var(--dropzone-icon);
     margin-bottom: 20px;
 }
 
 .drop-zone-content p {
     font-size: 1.2em;
-    color: #333;
+    color: var(--text-primary);
     margin: 10px 0;
 }
 
 .drop-zone-content .hint {
     font-size: 0.9em;
-    color: #666;
+    color: var(--text-secondary);
 }
 
+/* ==========================================================================
+   FILE LIST
+   ========================================================================== */
 .file-list {
     margin: 30px 0;
     padding: 20px;
-    background: #f8f9ff;
-    border-radius: 8px;
+    background: var(--filelist-bg);
+    border-radius: var(--radius-md);
 }
 
 .file-list h2 {
     margin-bottom: 15px;
-    color: #333;
+    color: var(--text-primary);
+    font-size: 1.1em;
+    font-weight: 600;
 }
 
 .file-list ul {
@@ -95,17 +260,48 @@ main {
 }
 
 .file-item {
-    padding: 10px;
-    margin: 5px 0;
-    background: white;
-    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    background: var(--fileitem-bg);
+    border-radius: var(--radius-sm);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border: 1px solid var(--border-subtle);
 }
 
+.file-item span {
+    color: var(--fileitem-text);
+    font-size: 0.95em;
+}
+
+.file-item button {
+    background: transparent;
+    border: 1px solid var(--border-default);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: all var(--transition-fast);
+}
+
+.file-item button:hover {
+    background: var(--surface-error-subtle);
+    border-color: var(--border-error);
+    color: var(--text-error);
+}
+
+.file-item button:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* ==========================================================================
+   FORMAT SELECTION
+   ========================================================================== */
 .format-selection {
-    margin: 20px 0;
+    margin: 24px 0;
     display: flex;
     align-items: center;
     gap: 15px;
@@ -113,41 +309,71 @@ main {
 
 .format-selection label {
     font-weight: 600;
-    color: #333;
+    color: var(--text-primary);
 }
 
 .format-selection select {
     padding: 10px 15px;
-    border: 2px solid #667eea;
-    border-radius: 6px;
+    border: 2px solid var(--input-border);
+    border-radius: var(--radius-sm);
     font-size: 1em;
-    background: white;
+    background: var(--input-bg);
+    color: var(--input-text);
     cursor: pointer;
+    transition: all var(--transition-fast);
+    min-width: 120px;
 }
 
+.format-selection select:hover {
+    border-color: var(--input-border-focus);
+}
+
+.format-selection select:focus {
+    outline: none;
+    border-color: var(--input-border-focus);
+    box-shadow: var(--focus-ring);
+}
+
+/* ==========================================================================
+   CONVERT BUTTON
+   ========================================================================== */
 .convert-button {
     width: 100%;
-    padding: 15px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    padding: 16px;
+    background: var(--button-primary-bg);
+    color: var(--button-primary-text);
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     font-size: 1.2em;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.2s ease;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
 }
 
 .convert-button:hover:not(:disabled) {
+    background: var(--button-primary-bg-hover);
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    box-shadow: var(--shadow-lg);
+}
+
+.convert-button:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.convert-button:active:not(:disabled) {
+    transform: translateY(0);
 }
 
 .convert-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
 }
 
+/* ==========================================================================
+   PROGRESS BAR
+   ========================================================================== */
 .progress-container {
     margin: 30px 0;
 }
@@ -155,44 +381,86 @@ main {
 .progress-bar {
     width: 100%;
     height: 30px;
-    background: #e0e0e0;
-    border-radius: 15px;
+    background: var(--progress-track);
+    border-radius: var(--radius-full);
     overflow: hidden;
     margin-bottom: 10px;
 }
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    background: var(--progress-fill);
     width: 0%;
-    transition: width 0.3s ease;
+    transition: width var(--transition-normal);
+    border-radius: var(--radius-full);
 }
 
 .progress-text {
     text-align: center;
     font-weight: 600;
-    color: #333;
+    color: var(--text-primary);
 }
 
+/* ==========================================================================
+   RESULTS
+   ========================================================================== */
 .results {
     margin-top: 30px;
 }
 
 .result-item {
-    padding: 15px;
+    padding: 16px 20px;
     margin: 10px 0;
-    background: #f0f9ff;
-    border-left: 4px solid #667eea;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
+    border-left: 4px solid var(--border-interactive);
+    background: var(--surface-interactive);
+}
+
+.result-item strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}
+
+.result-item p {
+    color: var(--text-secondary);
+    font-size: 0.95em;
 }
 
 .result-item.success {
-    background: #f0fdf4;
-    border-left-color: #22c55e;
+    background: var(--result-success-bg);
+    border-left-color: var(--result-success-border);
+}
+
+.result-item.success strong {
+    color: var(--result-success-text);
 }
 
 .result-item.error {
-    background: #fef2f2;
-    border-left-color: #ef4444;
+    background: var(--result-error-bg);
+    border-left-color: var(--result-error-border);
 }
 
+.result-item.error strong {
+    color: var(--result-error-text);
+}
+
+/* ==========================================================================
+   ACCESSIBILITY
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media (prefers-contrast: high) {
+    :root {
+        --border-default: var(--primitive-gray-600);
+        --border-interactive: var(--primitive-gray-700);
+    }
+}
