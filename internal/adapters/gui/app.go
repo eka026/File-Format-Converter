@@ -13,6 +13,7 @@ import (
 	"github.com/eka026/File-Format-Converter/internal/adapters/browser"
 	"github.com/eka026/File-Format-Converter/internal/domain"
 	"github.com/eka026/File-Format-Converter/internal/engines/document"
+	"github.com/eka026/File-Format-Converter/internal/engines/image"
 	"github.com/eka026/File-Format-Converter/internal/engines/spreadsheet"
 )
 
@@ -28,6 +29,7 @@ type App struct {
 	ctx               context.Context
 	spreadsheetEngine *spreadsheet.SpreadsheetEngine
 	documentEngine    domain.IConverter
+	imageEngine       domain.IConverter
 	headlessBrowser   *browser.HeadlessBrowser
 }
 
@@ -117,6 +119,24 @@ func (a *App) ConvertFileWithPath(sourcePath, targetFormat, outputPath string) C
 				}
 			}
 		}
+	} else if fileType == domain.FileTypeJPEG || fileType == domain.FileTypePNG {
+		// Validate image files (FR-08 requirement)
+		if err := a.validateImageFile(sourcePath, fileType); err != nil {
+			return ConversionResult{
+				Success: false,
+				Error:   fmt.Sprintf("Invalid image file: %v", err),
+			}
+		}
+
+		// Initialize image engine if not already initialized
+		if a.imageEngine == nil {
+			if err := a.initializeImageEngine(); err != nil {
+				return ConversionResult{
+					Success: false,
+					Error:   fmt.Sprintf("Failed to initialize image engine: %v", err),
+				}
+			}
+		}
 	} else {
 		return ConversionResult{
 			Success: false,
@@ -131,6 +151,8 @@ func (a *App) ConvertFileWithPath(sourcePath, targetFormat, outputPath string) C
 		engine = a.documentEngine
 	case domain.FileTypeXLSX:
 		engine = a.spreadsheetEngine
+	case domain.FileTypeJPEG, domain.FileTypePNG:
+		engine = a.imageEngine
 	default:
 		return ConversionResult{
 			Success: false,
@@ -162,7 +184,12 @@ func (a *App) ConvertFileWithPath(sourcePath, targetFormat, outputPath string) C
 			if err == nil {
 				downloadsDir := filepath.Join(homeDir, "Downloads")
 				baseName := strings.TrimSuffix(filepath.Base(sourcePath), filepath.Ext(sourcePath))
-				outputPath = filepath.Join(downloadsDir, baseName+"."+strings.ToLower(targetFormat))
+				formatExt := strings.ToLower(targetFormat)
+				// Normalize JPEG format (handle both "jpg" and "jpeg")
+				if formatExt == "jpg" {
+					formatExt = "jpeg"
+				}
+				outputPath = filepath.Join(downloadsDir, baseName+"."+formatExt)
 			}
 		}
 	} else {
@@ -220,11 +247,229 @@ func (a *App) ConvertFileWithPath(sourcePath, targetFormat, outputPath string) C
 }
 
 // BatchConvertFiles handles batch file conversion from the GUI
+// Uses parallel processing with worker pools to utilize all CPU cores for images, documents, and spreadsheets
 func (a *App) BatchConvertFiles(files []string, targetFormat string) []ConversionResult {
-	results := make([]ConversionResult, len(files))
+	if len(files) == 0 {
+		return nil
+	}
 
+	// Detect file types for all files
+	fileTypes := make([]domain.FileType, len(files))
+	for i, file := range files {
+		fileTypes[i] = a.detectFileType(file)
+	}
+
+	// Check if all files are of the same type
+	firstType := fileTypes[0]
+	allSameType := true
+	for _, fileType := range fileTypes {
+		if fileType != firstType {
+			allSameType = false
+			break
+		}
+	}
+
+	// Use parallel processing for homogeneous batches
+	if allSameType {
+		switch firstType {
+		case domain.FileTypeJPEG, domain.FileTypePNG, domain.FileTypeWEBP:
+			// All files are images - use parallel image conversion
+			if a.imageEngine != nil {
+				if imgEngine, ok := a.imageEngine.(*image.ImageEngine); ok {
+					return a.batchConvertImagesParallel(imgEngine, files, targetFormat, fileTypes)
+				}
+			}
+		case domain.FileTypeDOCX:
+			// All files are documents - use parallel document conversion
+			if a.documentEngine != nil {
+				if docEngine, ok := a.documentEngine.(*document.DocumentEngine); ok {
+					return a.batchConvertDocumentsParallel(docEngine, files, targetFormat, fileTypes)
+				}
+			}
+		case domain.FileTypeXLSX:
+			// All files are spreadsheets - use parallel spreadsheet conversion
+			if a.spreadsheetEngine != nil {
+				return a.batchConvertSpreadsheetsParallel(a.spreadsheetEngine, files, targetFormat, fileTypes)
+			}
+		}
+	}
+
+	// Fall back to sequential processing for mixed file types or if engines are not available
+	results := make([]ConversionResult, len(files))
 	for i, file := range files {
 		results[i] = a.ConvertFile(file, targetFormat)
+	}
+
+	return results
+}
+
+// batchConvertImagesParallel performs parallel batch conversion of images using worker pools
+func (a *App) batchConvertImagesParallel(
+	imgEngine *image.ImageEngine,
+	files []string,
+	targetFormat string,
+	fileTypes []domain.FileType,
+) []ConversionResult {
+	// Initialize image engine if needed
+	if imgEngine == nil {
+		if err := a.initializeImageEngine(); err != nil {
+			// Fall back to sequential if initialization fails
+			results := make([]ConversionResult, len(files))
+			for i, file := range files {
+				results[i] = a.ConvertFile(file, targetFormat)
+			}
+			return results
+		}
+		// Re-cast after initialization
+		if ie, ok := a.imageEngine.(*image.ImageEngine); ok {
+			imgEngine = ie
+		}
+	}
+
+	// Prepare batch conversion tasks
+	tasks := make([]image.BatchConversionTask, len(files))
+	for i, file := range files {
+		// Generate output path for each file
+		outputPath := a.generateOutputPath(file, targetFormat)
+
+		tasks[i] = image.BatchConversionTask{
+			InputPath:  file,
+			OutputPath: outputPath,
+			Index:      i,
+		}
+	}
+
+	// Perform parallel batch conversion using worker pool
+	batchResults := imgEngine.BatchConvert(tasks)
+
+	// Convert batch results to ConversionResult format
+	results := make([]ConversionResult, len(batchResults))
+	for i, batchResult := range batchResults {
+		if batchResult.Error != nil {
+			results[i] = ConversionResult{
+				Success: false,
+				Error:   batchResult.Error.Error(),
+			}
+		} else {
+			results[i] = ConversionResult{
+				Success:    true,
+				OutputPath: tasks[i].OutputPath,
+			}
+		}
+	}
+
+	return results
+}
+
+// batchConvertDocumentsParallel performs parallel batch conversion of documents using worker pools
+func (a *App) batchConvertDocumentsParallel(
+	docEngine *document.DocumentEngine,
+	files []string,
+	targetFormat string,
+	fileTypes []domain.FileType,
+) []ConversionResult {
+	// Initialize document engine if needed
+	if docEngine == nil {
+		if err := a.initializeDocumentEngine(); err != nil {
+			// Fall back to sequential if initialization fails
+			results := make([]ConversionResult, len(files))
+			for i, file := range files {
+				results[i] = a.ConvertFile(file, targetFormat)
+			}
+			return results
+		}
+		// Re-cast after initialization
+		if de, ok := a.documentEngine.(*document.DocumentEngine); ok {
+			docEngine = de
+		}
+	}
+
+	// Prepare batch conversion tasks
+	tasks := make([]document.BatchConversionTask, len(files))
+	for i, file := range files {
+		// Generate output path for each file
+		outputPath := a.generateOutputPath(file, targetFormat)
+
+		tasks[i] = document.BatchConversionTask{
+			InputPath:  file,
+			OutputPath: outputPath,
+			Index:      i,
+		}
+	}
+
+	// Perform parallel batch conversion using worker pool
+	batchResults := docEngine.BatchConvert(tasks)
+
+	// Convert batch results to ConversionResult format
+	results := make([]ConversionResult, len(batchResults))
+	for i, batchResult := range batchResults {
+		if batchResult.Error != nil {
+			results[i] = ConversionResult{
+				Success: false,
+				Error:   batchResult.Error.Error(),
+			}
+		} else {
+			results[i] = ConversionResult{
+				Success:    true,
+				OutputPath: tasks[i].OutputPath,
+			}
+		}
+	}
+
+	return results
+}
+
+// batchConvertSpreadsheetsParallel performs parallel batch conversion of spreadsheets using worker pools
+func (a *App) batchConvertSpreadsheetsParallel(
+	spreadsheetEngine *spreadsheet.SpreadsheetEngine,
+	files []string,
+	targetFormat string,
+	fileTypes []domain.FileType,
+) []ConversionResult {
+	// Initialize spreadsheet engine if needed
+	if spreadsheetEngine == nil {
+		if err := a.initializeSpreadsheetEngine(); err != nil {
+			// Fall back to sequential if initialization fails
+			results := make([]ConversionResult, len(files))
+			for i, file := range files {
+				results[i] = a.ConvertFile(file, targetFormat)
+			}
+			return results
+		}
+		// Re-cast after initialization
+		spreadsheetEngine = a.spreadsheetEngine
+	}
+
+	// Prepare batch conversion tasks
+	tasks := make([]spreadsheet.BatchConversionTask, len(files))
+	for i, file := range files {
+		// Generate output path for each file
+		outputPath := a.generateOutputPath(file, targetFormat)
+
+		tasks[i] = spreadsheet.BatchConversionTask{
+			InputPath:  file,
+			OutputPath: outputPath,
+			Index:      i,
+		}
+	}
+
+	// Perform parallel batch conversion using worker pool
+	batchResults := spreadsheetEngine.BatchConvert(tasks)
+
+	// Convert batch results to ConversionResult format
+	results := make([]ConversionResult, len(batchResults))
+	for i, batchResult := range batchResults {
+		if batchResult.Error != nil {
+			results[i] = ConversionResult{
+				Success: false,
+				Error:   batchResult.Error.Error(),
+			}
+		} else {
+			results[i] = ConversionResult{
+				Success:    true,
+				OutputPath: tasks[i].OutputPath,
+			}
+		}
 	}
 
 	return results
@@ -386,6 +631,19 @@ func (a *App) initializeDocumentEngine() error {
 	return nil
 }
 
+// initializeImageEngine initializes the image conversion engine
+func (a *App) initializeImageEngine() error {
+	// Create worker pool and WebP encoder for image engine
+	// For basic JPEG/PNG support, these can be nil, but we'll create them for completeness
+	workerPool := image.NewWorkerPool()
+	webpEncoder := image.NewWebPEncoder()
+
+	engine := image.NewImageEngine(workerPool, webpEncoder)
+	a.imageEngine = engine
+
+	return nil
+}
+
 // detectFileType detects the file type from the file extension
 func (a *App) detectFileType(filePath string) domain.FileType {
 	ext := strings.ToLower(filepath.Ext(filePath))
@@ -445,11 +703,77 @@ func (a *App) validateDOCXFile(filePath string) error {
 	return nil
 }
 
+// validateImageFile validates a JPEG or PNG image file (FR-08 requirement)
+func (a *App) validateImageFile(filePath string, fileType domain.FileType) error {
+	ext := strings.ToLower(filepath.Ext(filePath))
+
+	// Validate extension matches file type
+	switch fileType {
+	case domain.FileTypeJPEG:
+		if ext != ".jpeg" && ext != ".jpg" {
+			return fmt.Errorf("file does not have .jpeg or .jpg extension")
+		}
+	case domain.FileTypePNG:
+		if ext != ".png" {
+			return fmt.Errorf("file does not have .png extension")
+		}
+	default:
+		return fmt.Errorf("unsupported image file type: %s", fileType)
+	}
+
+	// Check if file exists
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("file does not exist: %w", err)
+	}
+
+	if fileInfo.IsDir() {
+		return fmt.Errorf("path is a directory, not a file")
+	}
+
+	// Validate image file by checking file signature (magic bytes)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("cannot open file: %w", err)
+	}
+	defer file.Close()
+
+	// Read first few bytes to check file signature
+	signature := make([]byte, 8)
+	if _, err := file.Read(signature); err != nil {
+		return fmt.Errorf("cannot read file: %w", err)
+	}
+
+	// Validate JPEG signature: FF D8 FF
+	if fileType == domain.FileTypeJPEG {
+		if signature[0] != 0xFF || signature[1] != 0xD8 || signature[2] != 0xFF {
+			return fmt.Errorf("invalid JPEG file: incorrect file signature")
+		}
+	}
+
+	// Validate PNG signature: 89 50 4E 47 0D 0A 1A 0A
+	if fileType == domain.FileTypePNG {
+		pngSignature := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
+		for i := 0; i < 8; i++ {
+			if signature[i] != pngSignature[i] {
+				return fmt.Errorf("invalid PNG file: incorrect file signature")
+			}
+		}
+	}
+
+	return nil
+}
+
 // generateOutputPath generates an output file path based on input path and target format
 func (a *App) generateOutputPath(inputPath, targetFormat string) string {
 	dir := filepath.Dir(inputPath)
 	baseName := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
 	ext := strings.ToLower(targetFormat)
+
+	// Normalize JPEG format (handle both "jpg" and "jpeg")
+	if ext == "jpg" {
+		ext = "jpeg"
+	}
 
 	return filepath.Join(dir, baseName+"."+ext)
 }

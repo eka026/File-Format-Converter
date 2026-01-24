@@ -25,9 +25,9 @@
                     </svg>
                     <p>Drag & Drop files here</p>
                     <p class="hint">or click to browse</p>
-                    <p class="hint supported-formats">Supported: .xlsx (Excel files)</p>
+                    <p class="hint supported-formats">Supported: .xlsx (Excel files), .docx (Word documents), .jpeg/.jpg/.png (Images)</p>
                 </div>
-                <input type="file" id="fileInput" multiple accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display: none;">
+                <input type="file" id="fileInput" multiple accept=".xlsx,.docx,.jpeg,.jpg,.png,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,image/jpeg,image/png" style="display: none;">
             </div>
 
             <!-- File List -->
@@ -43,7 +43,7 @@
                     <option value="pdf">PDF</option>
                     <option value="webp">WebP</option>
                     <option value="png">PNG</option>
-                    <option value="jpg">JPG</option>
+                    <option value="jpeg">JPEG</option>
                 </select>
             </div>
 

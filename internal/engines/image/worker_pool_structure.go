@@ -5,16 +5,18 @@ type Job struct {
 	// Job fields will be defined during implementation
 }
 
-// WorkerPool manages parallel image processing
-type WorkerPool struct {
+// WorkerPoolLegacy manages parallel image processing (legacy/unused)
+// NOTE: This is a legacy implementation that is not currently used.
+// The active implementation is in worker_pool.go
+type WorkerPoolLegacy struct {
 	workers int
 	jobs    chan Job
 	results chan Result
 }
 
-// NewWorkerPool creates a new worker pool
-func NewWorkerPool(workers int) *WorkerPool {
-	return &WorkerPool{
+// NewWorkerPoolLegacy creates a new worker pool (legacy/unused)
+func NewWorkerPoolLegacy(workers int) *WorkerPoolLegacy {
+	return &WorkerPoolLegacy{
 		workers: workers,
 		jobs:    make(chan Job),
 		results: make(chan Result),
@@ -22,18 +24,18 @@ func NewWorkerPool(workers int) *WorkerPool {
 }
 
 // Submit submits a job to the worker pool
-func (p *WorkerPool) Submit(job Job) {
+func (p *WorkerPoolLegacy) Submit(job Job) {
 	// Implementation will be added
 }
 
 // Collect collects results from the worker pool
-func (p *WorkerPool) Collect() []Result {
+func (p *WorkerPoolLegacy) Collect() []Result {
 	// Implementation will be added
 	return nil
 }
 
 // Shutdown shuts down the worker pool
-func (p *WorkerPool) Shutdown() {
+func (p *WorkerPoolLegacy) Shutdown() {
 	// Implementation will be added
 }
 

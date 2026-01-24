@@ -3,13 +3,20 @@
 let selectedFiles = [];
 
 // Supported file types
-const SUPPORTED_EXTENSIONS = ['.xlsx', '.docx'];
+const SUPPORTED_EXTENSIONS = ['.xlsx', '.docx', '.jpeg', '.jpg', '.png'];
 const XLSX_MIME_TYPES = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 ];
 const DOCX_MIME_TYPES = [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/msword'
+];
+const JPEG_MIME_TYPES = [
+    'image/jpeg',
+    'image/jpg'
+];
+const PNG_MIME_TYPES = [
+    'image/png'
 ];
 
 // Validates if a file is a supported .xlsx file
@@ -28,9 +35,25 @@ function isValidDocxFile(file) {
     return hasValidExtension && hasValidMimeType;
 }
 
+// Validates if a file is a supported JPEG image (FR-08)
+function isValidJpegFile(file) {
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = fileName.endsWith('.jpeg') || fileName.endsWith('.jpg');
+    const hasValidMimeType = JPEG_MIME_TYPES.includes(file.type) || file.type === '';
+    return hasValidExtension && hasValidMimeType;
+}
+
+// Validates if a file is a supported PNG image (FR-08)
+function isValidPngFile(file) {
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = fileName.endsWith('.png');
+    const hasValidMimeType = PNG_MIME_TYPES.includes(file.type) || file.type === '';
+    return hasValidExtension && hasValidMimeType;
+}
+
 // Validates if a file is a supported file type
 function isValidFile(file) {
-    return isValidXlsxFile(file) || isValidDocxFile(file);
+    return isValidXlsxFile(file) || isValidDocxFile(file) || isValidJpegFile(file) || isValidPngFile(file);
 }
 
 // Gets file extension from filename
@@ -44,6 +67,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const convertButton = document.getElementById('convertButton');
     const fileList = document.getElementById('fileList');
     const fileItems = document.getElementById('fileItems');
+
+    // Initialize format selection
+    updateFormatSelection();
 
     // Drag and drop handlers
     dropZone.addEventListener('click', () => fileInput.click());
@@ -93,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedFiles = [...selectedFiles, ...validFiles];
         updateFileList();
         convertButton.disabled = selectedFiles.length === 0;
+        updateFormatSelection();
 
         // Show error for invalid files
         if (invalidFiles.length > 0) {
@@ -107,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="result-item error">
                 <strong>Invalid file type</strong>
                 <p>The following files are not supported: ${fileNames}</p>
-                <p>Supported formats: .xlsx (Excel files), .docx (Word documents)</p>
+                <p>Supported formats: .xlsx (Excel files), .docx (Word documents), .jpeg/.jpg (JPEG images), .png (PNG images)</p>
             </div>
         `;
     }
@@ -115,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateFileList() {
         if (selectedFiles.length === 0) {
             fileList.style.display = 'none';
+            updateFormatSelection();
             return;
         }
 
@@ -123,8 +151,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const fileName = file.name.toLowerCase();
             const isDocx = fileName.endsWith('.docx');
             const isXlsx = fileName.endsWith('.xlsx');
-            const fileType = isDocx ? 'DOCX' : (isXlsx ? 'XLSX' : 'UNKNOWN');
-            const fileIcon = isDocx ? '📄' : (isXlsx ? '📊' : '📁');
+            const isJpeg = fileName.endsWith('.jpeg') || fileName.endsWith('.jpg');
+            const isPng = fileName.endsWith('.png');
+            let fileType = 'UNKNOWN';
+            let fileIcon = '📁';
+            if (isDocx) {
+                fileType = 'DOCX';
+                fileIcon = '📄';
+            } else if (isXlsx) {
+                fileType = 'XLSX';
+                fileIcon = '📊';
+            } else if (isJpeg) {
+                fileType = 'JPEG';
+                fileIcon = '🖼️';
+            } else if (isPng) {
+                fileType = 'PNG';
+                fileIcon = '🖼️';
+            }
             
             return `
             <li class="file-item">
@@ -135,16 +178,88 @@ document.addEventListener('DOMContentLoaded', () => {
             </li>
         `;
         }).join('');
+        
+        // Update format selection based on selected files
+        updateFormatSelection();
+    }
+
+    function updateFormatSelection() {
+        const targetFormatSelect = document.getElementById('targetFormat');
+        const currentValue = targetFormatSelect.value;
+        
+        if (selectedFiles.length === 0) {
+            // Show all formats when no files selected
+            targetFormatSelect.innerHTML = `
+                <option value="pdf">PDF</option>
+                <option value="webp">WebP</option>
+                <option value="png">PNG</option>
+                <option value="jpeg">JPEG</option>
+            `;
+            targetFormatSelect.value = currentValue || 'pdf';
+            return;
+        }
+
+        // Determine file types in selection
+        let hasImages = false;
+        let hasDocuments = false;
+
+        selectedFiles.forEach(file => {
+            const fileName = file.name.toLowerCase();
+            if (fileName.endsWith('.jpeg') || fileName.endsWith('.jpg') || fileName.endsWith('.png')) {
+                hasImages = true;
+            } else if (fileName.endsWith('.docx') || fileName.endsWith('.xlsx')) {
+                hasDocuments = true;
+            }
+        });
+
+        // Build format options based on file types
+        let formatOptions = '';
+        
+        if (hasImages && !hasDocuments) {
+            // Only images selected - show image formats (FR-09: WebP, PNG, JPEG)
+            formatOptions = `
+                <option value="webp">WebP</option>
+                <option value="png">PNG</option>
+                <option value="jpeg">JPEG</option>
+            `;
+        } else if (hasDocuments && !hasImages) {
+            // Only documents selected - show PDF
+            formatOptions = `
+                <option value="pdf">PDF</option>
+            `;
+        } else {
+            // Mixed selection - show all formats
+            formatOptions = `
+                <option value="pdf">PDF</option>
+                <option value="webp">WebP</option>
+                <option value="png">PNG</option>
+                <option value="jpeg">JPEG</option>
+            `;
+        }
+
+        targetFormatSelect.innerHTML = formatOptions;
+        
+        // Try to preserve current selection, or select first option
+        if (targetFormatSelect.querySelector(`option[value="${currentValue}"]`)) {
+            targetFormatSelect.value = currentValue;
+        } else {
+            targetFormatSelect.selectedIndex = 0;
+        }
     }
 
     window.removeFile = (index) => {
         selectedFiles.splice(index, 1);
         updateFileList();
         convertButton.disabled = selectedFiles.length === 0;
+        updateFormatSelection();
     };
 
     async function handleConvert() {
-        const targetFormat = document.getElementById('targetFormat').value;
+        let targetFormat = document.getElementById('targetFormat').value;
+        // Normalize JPEG format (handle both "jpg" and "jpeg")
+        if (targetFormat === 'jpg') {
+            targetFormat = 'jpeg';
+        }
         const progressContainer = document.getElementById('progressContainer');
         const progressFill = document.getElementById('progressFill');
         const progressText = document.getElementById('progressText');

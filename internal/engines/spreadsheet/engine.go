@@ -2,8 +2,10 @@ package spreadsheet
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/eka026/File-Format-Converter/internal/domain"
+	"github.com/eka026/File-Format-Converter/internal/engines/image"
 )
 
 // SpreadsheetEngine implements IConverter for spreadsheet conversions (Excel → PDF)
@@ -11,6 +13,7 @@ type SpreadsheetEngine struct {
 	parser       *ExcelParser
 	htmlRenderer *HTMLRenderer
 	pdfGenerator *PDFGenerator
+	workerPool   *image.WorkerPool
 }
 
 // NewSpreadsheetEngine creates a new spreadsheet conversion engine
@@ -19,6 +22,7 @@ func NewSpreadsheetEngine(htmlRenderer *HTMLRenderer, pdfGenerator *PDFGenerator
 		parser:       NewExcelParser(),
 		htmlRenderer: htmlRenderer,
 		pdfGenerator: pdfGenerator,
+		workerPool:   image.NewWorkerPool(),
 	}
 }
 
@@ -79,5 +83,57 @@ func (e *SpreadsheetEngine) ValidateBytes(data []byte) error {
 	}
 	f.Close()
 	return nil
+}
+
+// BatchConversionTask represents a single conversion task in a batch
+type BatchConversionTask struct {
+	InputPath  string
+	OutputPath string
+	Index      int
+}
+
+// BatchConversionResult represents the result of a batch conversion task
+type BatchConversionResult struct {
+	Index int
+	Error error
+}
+
+// BatchConvert processes multiple spreadsheet conversions in parallel using the worker pool
+// It takes a slice of input/output path pairs and processes them concurrently
+// utilizing all available CPU cores through the worker pool
+func (e *SpreadsheetEngine) BatchConvert(tasks []BatchConversionTask) []BatchConversionResult {
+	if len(tasks) == 0 {
+		return nil
+	}
+
+	results := make([]BatchConversionResult, len(tasks))
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	// Submit all tasks to the worker pool
+	for _, task := range tasks {
+		wg.Add(1)
+		task := task // Capture loop variable
+
+		e.workerPool.Submit(func() {
+			defer wg.Done()
+
+			// Perform the conversion
+			err := e.Convert(task.InputPath, task.OutputPath)
+
+			// Store result thread-safely
+			mu.Lock()
+			results[task.Index] = BatchConversionResult{
+				Index: task.Index,
+				Error: err,
+			}
+			mu.Unlock()
+		})
+	}
+
+	// Wait for all conversions to complete
+	wg.Wait()
+
+	return results
 }
 

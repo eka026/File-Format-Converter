@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/eka026/File-Format-Converter/internal/domain"
 	"github.com/eka026/File-Format-Converter/internal/adapters/browser"
+	"github.com/eka026/File-Format-Converter/internal/engines/image"
 )
 
 // DocumentEngine implements IConverter for document conversions using pure Go
@@ -15,6 +17,7 @@ type DocumentEngine struct {
 	parser       *DocxParser
 	htmlRenderer *HTMLRenderer
 	pdfGenerator *browser.HeadlessBrowser
+	workerPool   *image.WorkerPool
 }
 
 // NewDocumentEngine creates a new document conversion engine
@@ -24,6 +27,7 @@ func NewDocumentEngine(pdfGenerator *browser.HeadlessBrowser) domain.IConverter 
 		parser:       NewDocxParser(),
 		htmlRenderer: NewHTMLRenderer(),
 		pdfGenerator: pdfGenerator,
+		workerPool:   image.NewWorkerPool(),
 	}
 }
 
@@ -93,6 +97,58 @@ func getFileExtension(filename string) string {
 // Validate checks if the input file is valid for this converter
 func (e *DocumentEngine) Validate(file string) error {
 	return validateDOCX(file)
+}
+
+// BatchConversionTask represents a single conversion task in a batch
+type BatchConversionTask struct {
+	InputPath  string
+	OutputPath string
+	Index      int
+}
+
+// BatchConversionResult represents the result of a batch conversion task
+type BatchConversionResult struct {
+	Index int
+	Error error
+}
+
+// BatchConvert processes multiple document conversions in parallel using the worker pool
+// It takes a slice of input/output path pairs and processes them concurrently
+// utilizing all available CPU cores through the worker pool
+func (e *DocumentEngine) BatchConvert(tasks []BatchConversionTask) []BatchConversionResult {
+	if len(tasks) == 0 {
+		return nil
+	}
+
+	results := make([]BatchConversionResult, len(tasks))
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	// Submit all tasks to the worker pool
+	for _, task := range tasks {
+		wg.Add(1)
+		task := task // Capture loop variable
+
+		e.workerPool.Submit(func() {
+			defer wg.Done()
+
+			// Perform the conversion
+			err := e.Convert(task.InputPath, task.OutputPath)
+
+			// Store result thread-safely
+			mu.Lock()
+			results[task.Index] = BatchConversionResult{
+				Index: task.Index,
+				Error: err,
+			}
+			mu.Unlock()
+		})
+	}
+
+	// Wait for all conversions to complete
+	wg.Wait()
+
+	return results
 }
 
 
