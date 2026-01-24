@@ -21,8 +21,7 @@ This project follows hexagonal (ports and adapters) architecture principles:
 │   ├── adapters/          # Driving and driven adapters
 │   └── engines/           # Conversion engines
 ├── web/                   # Wails frontend (HTML/CSS/JS)
-├── frontend/              # Wails-generated TypeScript bindings
-├── wasm/                  # WebAssembly modules
+├── frontend/              # Wails-generated TypeScript bindings                 
 └── docs/                  # Documentation
 
 ```
