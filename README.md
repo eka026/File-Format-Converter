@@ -35,7 +35,7 @@ This project follows hexagonal (ports and adapters) architecture principles:
 - Batch processing
 - Progress tracking
 
-## Data Sovereignty (NFR-01)
+## Data Sovereignty
 
 **This application is designed with data sovereignty as a core principle.** All file processing occurs entirely locally on your machine. The application:
 
@@ -46,7 +46,7 @@ This project follows hexagonal (ports and adapters) architecture principles:
 
 All conversion operations are performed using local libraries and system tools. No data leaves your device during the conversion process.
 
-## Single Binary Distribution (NFR-04)
+## Single Binary Distribution
 
 **This application is distributed as a single executable file with no external runtime dependencies.**
 
@@ -128,14 +128,6 @@ After building, you'll find:
 - **Distribution folder**: `build/bin/` contains the single executable file
 
 The executable is **self-contained** - you can copy just the `.exe` file to any Windows machine and run it (no installation required, except WebView2 on older Windows systems).
-
-### Antivirus False Positives
-
-Windows Defender or other antivirus software may flag the executable as a false positive. This is common with unsigned Go binaries. See [ANTIVIRUS_FALSE_POSITIVE.md](ANTIVIRUS_FALSE_POSITIVE.md) for solutions including:
-- Adding exclusions
-- Reporting false positives
-- Code signing options
-- Build configuration tips
 
 ## License
 
