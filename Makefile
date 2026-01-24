@@ -1,9 +1,11 @@
 .PHONY: build clean test run govulncheck
 
 # Build GUI (requires Wails)
+# NFR-04 (Single Binary): Builds a single executable with embedded assets
+# All Go dependencies are statically linked. No external runtimes required.
 build: govulncheck
-	@echo "Building GUI..."
-	@wails build
+	@echo "Building GUI (single binary, statically linked)..."
+	@wails build -platform windows/amd64 -ldflags "-s -w" -trimpath
 
 # Clean build artifacts
 clean:

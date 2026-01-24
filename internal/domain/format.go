@@ -6,7 +6,6 @@ type Format string
 const (
 	FormatPDF  Format = "PDF"
 	FormatHTML Format = "HTML"
-	FormatWEBP Format = "WEBP"
 	FormatPNG  Format = "PNG"
 )
 
@@ -18,6 +17,5 @@ const (
 	FileTypeDOCX FileType = "DOCX"
 	FileTypeJPEG FileType = "JPEG"
 	FileTypePNG  FileType = "PNG"
-	FileTypeWEBP FileType = "WEBP"
 )
 

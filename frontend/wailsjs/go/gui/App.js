@@ -30,10 +30,6 @@ export function GetFileInfo(arg1) {
   return window['go']['gui']['App']['GetFileInfo'](arg1);
 }
 
-export function GetSavePath(arg1) {
-  return window['go']['gui']['App']['GetSavePath'](arg1);
-}
-
 export function GetSupportedFormats() {
   return window['go']['gui']['App']['GetSupportedFormats']();
 }

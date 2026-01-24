@@ -221,7 +221,7 @@ func (a *App) BatchConvertFiles(files []string, targetFormat string) []Conversio
 	// Use parallel processing for homogeneous batches
 	if allSameType {
 		switch firstType {
-		case domain.FileTypeJPEG, domain.FileTypePNG, domain.FileTypeWEBP:
+		case domain.FileTypeJPEG, domain.FileTypePNG:
 			// All files are images - use parallel image conversion
 			if a.imageEngine != nil {
 				if imgEngine, ok := a.imageEngine.(*image.ImageEngine); ok {
@@ -612,12 +612,10 @@ func (a *App) initializeDocumentEngine() error {
 
 // initializeImageEngine initializes the image conversion engine
 func (a *App) initializeImageEngine() error {
-	// Create worker pool and WebP encoder for image engine
-	// For basic JPEG/PNG support, these can be nil, but we'll create them for completeness
+	// Create worker pool for image engine
 	workerPool := image.NewWorkerPool()
-	webpEncoder := image.NewWebPEncoder()
 
-	engine := image.NewImageEngine(workerPool, webpEncoder)
+	engine := image.NewImageEngine(workerPool)
 	a.imageEngine = engine
 
 	return nil
@@ -643,7 +641,6 @@ func (a *App) initializeConverterService() error {
 	if a.imageEngine != nil {
 		engines[domain.FileTypeJPEG] = a.imageEngine
 		engines[domain.FileTypePNG] = a.imageEngine
-		engines[domain.FileTypeWEBP] = a.imageEngine
 	}
 
 	// Create ConverterService
@@ -669,8 +666,6 @@ func (a *App) detectFileType(filePath string) domain.FileType {
 		return domain.FileTypeJPEG
 	case ".png":
 		return domain.FileTypePNG
-	case ".webp":
-		return domain.FileTypeWEBP
 	default:
 		return ""
 	}

@@ -16,8 +16,6 @@ export function DeleteTempFile(arg1:string):Promise<void>;
 
 export function GetFileInfo(arg1:string):Promise<Record<string, any>>;
 
-export function GetSavePath(arg1:string):Promise<string>;
-
 export function GetSupportedFormats():Promise<Array<string>>;
 
 export function OpenFile(arg1:string):Promise<void>;

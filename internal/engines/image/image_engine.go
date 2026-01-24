@@ -11,19 +11,16 @@ import (
 type ImageEngineLegacy struct {
 	workerCount int
 	workerPool  *WorkerPool
-	webpEncoder *WebPEncoder
 }
 
 // NewImageEngineLegacy creates a new image conversion engine (legacy/unused)
 func NewImageEngineLegacy(
 	workerCount int,
 	workerPool *WorkerPool,
-	webpEncoder *WebPEncoder,
 ) ports.IConverter {
 	return &ImageEngineLegacy{
 		workerCount: workerCount,
 		workerPool:  workerPool,
-		webpEncoder: webpEncoder,
 	}
 }
 

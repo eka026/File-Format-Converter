@@ -13,14 +13,12 @@ import (
 // ImageEngine implements IConverter for image format conversions
 type ImageEngine struct {
 	workerPool *WorkerPool
-	webpEncoder *WebPEncoder
 }
 
 // NewImageEngine creates a new image conversion engine
-func NewImageEngine(workerPool *WorkerPool, webpEncoder *WebPEncoder) domain.IConverter {
+func NewImageEngine(workerPool *WorkerPool) domain.IConverter {
 	return &ImageEngine{
-		workerPool:  workerPool,
-		webpEncoder: webpEncoder,
+		workerPool: workerPool,
 	}
 }
 
@@ -46,8 +44,6 @@ func (e *ImageEngine) Convert(ctx context.Context, input, output string) error {
 	ext := strings.ToLower(filepath.Ext(output))
 	
 	switch ext {
-	case ".webp":
-		return e.webpEncoder.Encode(ctx, img, output)
 	case ".jpeg", ".jpg":
 		// JPEG format - imaging.Save will handle this automatically
 		return imaging.Save(img, output)

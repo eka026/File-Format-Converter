@@ -3,7 +3,6 @@ module github.com/eka026/File-Format-Converter
 go 1.22.0
 
 require (
-	github.com/chai2010/webp v1.4.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/go-rod/rod v0.114.7
 	github.com/wailsapp/wails/v2 v2.11.0

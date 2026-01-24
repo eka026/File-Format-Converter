@@ -201,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Show all formats when no files selected
             targetFormatSelect.innerHTML = `
                 <option value="pdf">PDF</option>
-                <option value="webp">WebP</option>
                 <option value="png">PNG</option>
                 <option value="jpeg">JPEG</option>
             `;
@@ -226,9 +225,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let formatOptions = '';
         
         if (hasImages && !hasDocuments) {
-            // Only images selected - show image formats (FR-09: WebP, PNG, JPEG)
+            // Only images selected - show image formats (FR-09: PNG, JPEG)
             formatOptions = `
-                <option value="webp">WebP</option>
                 <option value="png">PNG</option>
                 <option value="jpeg">JPEG</option>
             `;
@@ -241,7 +239,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Mixed selection - show all formats
             formatOptions = `
                 <option value="pdf">PDF</option>
-                <option value="webp">WebP</option>
                 <option value="png">PNG</option>
                 <option value="jpeg">JPEG</option>
             `;

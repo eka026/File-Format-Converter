@@ -61,36 +61,6 @@ func TestImageEngine_Validate_InvalidFile(t *testing.T) {
 	}
 }
 
-// TestImageEngine_Convert_ToWebP tests FR-09: The system shall allow users to select target formats (WebP)
-func TestImageEngine_Convert_ToWebP(t *testing.T) {
-	tmpFile := createTempJPEGFile(t)
-	defer os.Remove(tmpFile)
-
-	outputFile := filepath.Join(t.TempDir(), "output.webp")
-	defer os.Remove(outputFile)
-
-	engine := createTestImageEngine(t)
-	ctx := context.Background()
-
-	err := engine.Convert(ctx, tmpFile, outputFile)
-	if err != nil {
-		t.Fatalf("FR-09: Conversion to WebP failed: %v", err)
-	}
-
-	// Verify output file was created
-	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
-		t.Error("FR-09: WebP output file was not created")
-	}
-
-	// Verify file is not empty
-	info, err := os.Stat(outputFile)
-	if err != nil {
-		t.Fatalf("Failed to stat output file: %v", err)
-	}
-	if info.Size() == 0 {
-		t.Error("FR-09: Generated WebP file is empty")
-	}
-}
 
 // TestImageEngine_Convert_ToPNG tests FR-09: The system shall allow users to select target formats (PNG)
 func TestImageEngine_Convert_ToPNG(t *testing.T) {
@@ -163,7 +133,7 @@ func TestImageEngine_BatchConvert_ParallelProcessing(t *testing.T) {
 		}
 		defer os.Remove(inputFiles[i])
 
-		outputFile := filepath.Join(t.TempDir(), filepath.Base(inputFiles[i])+".webp")
+		outputFile := filepath.Join(t.TempDir(), filepath.Base(inputFiles[i])+".png")
 		defer os.Remove(outputFile)
 
 		tasks[i] = BatchConversionTask{
@@ -274,7 +244,7 @@ func TestImageEngine_BatchConvert_WorkerPoolUtilization(t *testing.T) {
 
 // TestImageEngine_BatchConvert_AllFormats tests batch conversion with different target formats
 func TestImageEngine_BatchConvert_AllFormats(t *testing.T) {
-	formats := []string{"webp", "png", "jpeg"}
+	formats := []string{"png", "jpeg"}
 	tasks := make([]BatchConversionTask, len(formats))
 	inputFile := createTempJPEGFile(t)
 	defer os.Remove(inputFile)
@@ -308,8 +278,7 @@ func TestImageEngine_BatchConvert_AllFormats(t *testing.T) {
 // createTestImageEngine creates an ImageEngine instance for testing
 func createTestImageEngine(t *testing.T) *ImageEngine {
 	workerPool := NewWorkerPool()
-	webpEncoder := NewWebPEncoder()
-	return NewImageEngine(workerPool, webpEncoder).(*ImageEngine)
+	return NewImageEngine(workerPool).(*ImageEngine)
 }
 
 // createTempJPEGFile creates a temporary JPEG file for testing
