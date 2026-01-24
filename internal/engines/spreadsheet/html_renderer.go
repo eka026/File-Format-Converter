@@ -71,10 +71,40 @@ func (r *HTMLRenderer) renderSheet(buf *bytes.Buffer, sheet *SheetData) {
 	buf.WriteString(fmt.Sprintf(`<div class="sheet-title">%s</div>`, html.EscapeString(sheet.Name)))
 	buf.WriteString("<table>")
 
-	for _, row := range sheet.Rows {
-		buf.WriteString("<tr>")
-		for _, cell := range row {
-			r.renderCell(buf, &cell)
+	// Render colgroup for column widths
+	if len(sheet.ColumnWidths) > 0 {
+		buf.WriteString("<colgroup>")
+		for col := 0; col < sheet.MaxColumns; col++ {
+			if width, ok := sheet.ColumnWidths[col]; ok {
+				buf.WriteString(fmt.Sprintf(`<col style="width: %.0fpx;">`, width))
+			} else {
+				buf.WriteString("<col>")
+			}
+		}
+		buf.WriteString("</colgroup>")
+	}
+
+	for rowIdx, row := range sheet.Rows {
+		// Apply row height if available
+		if height, ok := sheet.RowHeights[rowIdx]; ok {
+			buf.WriteString(fmt.Sprintf(`<tr style="height: %.0fpx;">`, height))
+		} else {
+			buf.WriteString("<tr>")
+		}
+
+		// Render cells, padding to MaxColumns for consistent structure
+		for colIdx := 0; colIdx < sheet.MaxColumns; colIdx++ {
+			if colIdx < len(row) {
+				cell := row[colIdx]
+				// Skip cells that are covered by a merge
+				if cell.IsMergeCovered {
+					continue
+				}
+				r.renderCell(buf, &cell)
+			} else {
+				// Pad with empty cells
+				buf.WriteString("<td></td>")
+			}
 		}
 		buf.WriteString("</tr>")
 	}
@@ -117,6 +147,9 @@ func (r *HTMLRenderer) renderCell(buf *bytes.Buffer, cell *CellData) {
 	}
 	if cell.Style.Alignment != "" {
 		styles.WriteString(fmt.Sprintf("text-align: %s; ", cell.Style.Alignment))
+	}
+	if cell.Style.BorderStyle != "" {
+		styles.WriteString(fmt.Sprintf("border: 1px %s #000; ", cell.Style.BorderStyle))
 	}
 
 	if styles.Len() > 0 {

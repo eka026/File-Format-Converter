@@ -9,13 +9,14 @@ import (
 
 // CellData represents parsed cell information
 type CellData struct {
-	Value       string
-	Row         int
-	Col         int
-	Style       CellStyle
-	IsMerged    bool
-	MergeAcross int // number of columns this cell spans
-	MergeDown   int // number of rows this cell spans
+	Value          string
+	Row            int
+	Col            int
+	Style          CellStyle
+	IsMerged       bool
+	MergeAcross    int  // number of columns this cell spans
+	MergeDown      int  // number of rows this cell spans
+	IsMergeCovered bool // true if this cell is covered by another cell's merge (should be skipped)
 }
 
 // CellStyle represents cell styling information
@@ -31,10 +32,12 @@ type CellStyle struct {
 
 // SheetData represents a parsed worksheet
 type SheetData struct {
-	Name       string
-	Rows       [][]CellData
-	MaxColumns int
-	MaxRows    int
+	Name         string
+	Rows         [][]CellData
+	MaxColumns   int
+	MaxRows      int
+	ColumnWidths map[int]float64 // column index -> width in pixels
+	RowHeights   map[int]float64 // row index -> height in pixels
 }
 
 // WorkbookData represents a fully parsed Excel workbook
@@ -98,9 +101,32 @@ func (p *ExcelParser) parseSheet(f *excelize.File, sheetName string) (*SheetData
 	}
 
 	// Build a map of merged cell ranges
-	mergeMap := p.buildMergeMap(mergedCells)
+	mergeResult := p.buildMergeMap(mergedCells)
+
+	// Extract column widths
+	sheet.ColumnWidths = make(map[int]float64)
+	cols, err := f.GetCols(sheetName)
+	if err == nil {
+		for colIdx := range cols {
+			colName, _ := excelize.ColumnNumberToName(colIdx + 1)
+			width, err := f.GetColWidth(sheetName, colName)
+			if err == nil && width > 0 {
+				// Convert Excel width units to approximate pixels (1 unit ≈ 7 pixels)
+				sheet.ColumnWidths[colIdx] = width * 7
+			}
+		}
+	}
+
+	// Extract row heights
+	sheet.RowHeights = make(map[int]float64)
 
 	for rowIdx, row := range rows {
+		// Get row height
+		height, err := f.GetRowHeight(sheetName, rowIdx+1)
+		if err == nil && height > 0 {
+			sheet.RowHeights[rowIdx] = height
+		}
+
 		rowData := make([]CellData, len(row))
 		for colIdx, cellValue := range row {
 			cellRef, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+1)
@@ -111,8 +137,13 @@ func (p *ExcelParser) parseSheet(f *excelize.File, sheetName string) (*SheetData
 				Col:   colIdx,
 			}
 
-			// Check if this cell is part of a merge
-			if merge, ok := mergeMap[cellRef]; ok {
+			// Check if this cell is covered by another merge (should be skipped)
+			if mergeResult.coveredCells[cellRef] {
+				cellData.IsMergeCovered = true
+			}
+
+			// Check if this cell starts a merge
+			if merge, ok := mergeResult.startCells[cellRef]; ok {
 				cellData.IsMerged = true
 				cellData.MergeAcross = merge.colSpan - 1
 				cellData.MergeDown = merge.rowSpan - 1
@@ -146,9 +177,18 @@ type mergeInfo struct {
 	value     string
 }
 
+// mergeMapResult contains both start cells and covered cells
+type mergeMapResult struct {
+	startCells   map[string]*mergeInfo // cells that start a merge
+	coveredCells map[string]bool       // cells covered by a merge (not the start)
+}
+
 // buildMergeMap creates a lookup map for merged cell ranges
-func (p *ExcelParser) buildMergeMap(mergedCells []excelize.MergeCell) map[string]*mergeInfo {
-	mergeMap := make(map[string]*mergeInfo)
+func (p *ExcelParser) buildMergeMap(mergedCells []excelize.MergeCell) *mergeMapResult {
+	result := &mergeMapResult{
+		startCells:   make(map[string]*mergeInfo),
+		coveredCells: make(map[string]bool),
+	}
 
 	for _, mc := range mergedCells {
 		startCell := mc.GetStartAxis()
@@ -165,10 +205,20 @@ func (p *ExcelParser) buildMergeMap(mergedCells []excelize.MergeCell) map[string
 			value:     mc.GetCellValue(),
 		}
 
-		mergeMap[startCell] = info
+		result.startCells[startCell] = info
+
+		// Mark all covered cells (except the start cell)
+		for row := startRow; row <= endRow; row++ {
+			for col := startCol; col <= endCol; col++ {
+				cellRef, _ := excelize.CoordinatesToCellName(col, row)
+				if cellRef != startCell {
+					result.coveredCells[cellRef] = true
+				}
+			}
+		}
 	}
 
-	return mergeMap
+	return result
 }
 
 // extractCellStyle extracts styling information from a cell
@@ -204,7 +254,37 @@ func (p *ExcelParser) extractCellStyle(f *excelize.File, styleID int) CellStyle 
 		style.Alignment = styleInfo.Alignment.Horizontal
 	}
 
+	// Extract border style (check if any border is defined)
+	if styleInfo.Border != nil && len(styleInfo.Border) > 0 {
+		for _, border := range styleInfo.Border {
+			if border.Style > 0 {
+				style.BorderStyle = mapBorderStyle(border.Style)
+				break
+			}
+		}
+	}
+
 	return style
+}
+
+// mapBorderStyle converts Excel border style ID to CSS border style
+func mapBorderStyle(styleID int) string {
+	switch styleID {
+	case 1: // thin
+		return "solid"
+	case 2: // medium
+		return "solid"
+	case 3: // dashed
+		return "dashed"
+	case 4: // dotted
+		return "dotted"
+	case 5: // thick
+		return "solid"
+	case 6: // double
+		return "double"
+	default:
+		return "solid"
+	}
 }
 
 // GetCellValue retrieves a specific cell value with error handling
