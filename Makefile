@@ -5,7 +5,13 @@
 # All Go dependencies are statically linked. No external runtimes required.
 build: govulncheck
 	@echo "Building GUI (single binary, statically linked)..."
-	@wails build -platform windows/amd64 -ldflags "-s -w" -trimpath
+	@wails build -platform windows/amd64 -trimpath
+
+# Build with minimal optimizations (may help reduce false positives)
+# Note: Removing -s -w flags to include symbol info which can help with AV detection
+build-safe: govulncheck
+	@echo "Building GUI (with symbol info to reduce false positives)..."
+	@wails build -platform windows/amd64 -trimpath
 
 # Clean build artifacts
 clean:

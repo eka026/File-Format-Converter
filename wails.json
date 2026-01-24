@@ -15,13 +15,15 @@
     }
   },
   "author": {
-    "name": "",
+    "name": "File Format Converter",
     "email": ""
   },
   "info": {
     "productName": "File Format Converter",
     "productVersion": "1.0.0",
-    "copyright": "",
+    "copyright": "Copyright (c) 2024 File Format Converter. MIT License.",
+    "companyName": "File Format Converter",
+    "fileDescription": "Local-first file converter for Excel, Word, and Image files",
     "comments": "Local-first file converter for Excel, Word, and Image files. NFR-04: Single binary distribution with no external runtime dependencies."
   }
 }

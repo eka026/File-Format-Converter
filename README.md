@@ -129,6 +129,14 @@ After building, you'll find:
 
 The executable is **self-contained** - you can copy just the `.exe` file to any Windows machine and run it (no installation required, except WebView2 on older Windows systems).
 
+### Antivirus False Positives
+
+Windows Defender or other antivirus software may flag the executable as a false positive. This is common with unsigned Go binaries. See [ANTIVIRUS_FALSE_POSITIVE.md](ANTIVIRUS_FALSE_POSITIVE.md) for solutions including:
+- Adding exclusions
+- Reporting false positives
+- Code signing options
+- Build configuration tips
+
 ## License
 
 MIT
