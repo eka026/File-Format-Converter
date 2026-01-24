@@ -9,7 +9,10 @@
     "install": "",
     "build": "",
     "bridge": "app.js",
-    "serve": ""
+    "serve": "",
+    "dev": {
+      "reloaddirs": ["./web"]
+    }
   },
   "author": {
     "name": "",

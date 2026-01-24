@@ -479,6 +479,47 @@ main {
     color: var(--result-error-text);
 }
 
+.result-item.file-result {
+    margin-top: 15px;
+}
+
+.result-item .file-path {
+    font-size: 0.85em;
+    color: var(--text-tertiary);
+    margin: 8px 0;
+    word-break: break-all;
+    font-family: monospace;
+}
+
+.file-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.action-button {
+    padding: 8px 16px;
+    background: var(--button-secondary-bg);
+    color: var(--button-secondary-text);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    font-size: 0.9em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.action-button:hover {
+    background: var(--button-secondary-bg-hover);
+    border-color: var(--border-interactive);
+    transform: translateY(-1px);
+}
+
+.action-button:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
 /* ==========================================================================
    ACCESSIBILITY
    ========================================================================== */

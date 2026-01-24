@@ -1,13 +1,14 @@
 package browser
 
 import (
-	"github.com/go-rod/rod"
+	"context"
+
 	"github.com/eka026/File-Format-Converter/internal/ports"
 )
 
-// HeadlessBrowserAdapter is the headless browser driven adapter
+// HeadlessBrowserAdapter is the headless browser driven adapter that implements IPDFGenerator
 type HeadlessBrowserAdapter struct {
-	browser *rod.Browser
+	headlessBrowser *HeadlessBrowser
 }
 
 // NewHeadlessBrowserAdapter creates a new headless browser adapter
@@ -15,21 +16,35 @@ func NewHeadlessBrowserAdapter() ports.IPDFGenerator {
 	return &HeadlessBrowserAdapter{}
 }
 
-// GenerateFromHTML generates a PDF from HTML content
+// GenerateFromHTML generates a PDF from HTML content and returns PDF bytes
 func (a *HeadlessBrowserAdapter) GenerateFromHTML(html []byte) []byte {
-	// Implementation will be added
-	return nil
+	ctx := context.Background()
+
+	// Lazy initialization of headless browser
+	if a.headlessBrowser == nil {
+		browser, err := NewHeadlessBrowser()
+		if err != nil {
+			return nil
+		}
+		a.headlessBrowser = browser
+	}
+
+	// Convert HTML bytes to string
+	htmlContent := string(html)
+
+	// Generate PDF using headless browser
+	pdfBytes, err := a.headlessBrowser.GeneratePDFFromHTMLBytes(ctx, htmlContent)
+	if err != nil {
+		return nil
+	}
+
+	return pdfBytes
 }
 
-// LaunchBrowser launches the headless browser
-func (a *HeadlessBrowserAdapter) LaunchBrowser() *rod.Browser {
-	// Implementation will be added
+// Close closes the underlying headless browser
+func (a *HeadlessBrowserAdapter) Close() error {
+	if a.headlessBrowser != nil {
+		return a.headlessBrowser.Close()
+	}
 	return nil
 }
-
-// printToPDF prints a page to PDF
-func (a *HeadlessBrowserAdapter) printToPDF(page *rod.Page) []byte {
-	// Implementation will be added
-	return nil
-}
-

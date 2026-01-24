@@ -19,7 +19,7 @@ test:
 
 # Run GUI in dev mode
 run:
-	@wails dev
+	@wails dev -assetdir ./web -reloaddirs ./web
 
 # Install dependencies
 deps:
