@@ -238,6 +238,12 @@ main {
     color: var(--text-secondary);
 }
 
+.drop-zone-content .supported-formats {
+    margin-top: 8px;
+    font-size: 0.85em;
+    color: var(--text-tertiary);
+}
+
 /* ==========================================================================
    FILE LIST
    ========================================================================== */
@@ -295,6 +301,34 @@ main {
 .file-item button:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
+}
+
+.file-item .file-icon {
+    font-size: 1.2em;
+    margin-right: 8px;
+}
+
+.file-item .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-item .file-type-badge {
+    background: var(--primitive-gray-200);
+    color: var(--text-secondary);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-right: 12px;
+}
+
+.file-item .file-type-badge.xlsx {
+    background: oklch(92% 0.05 145);
+    color: oklch(40% 0.08 145);
 }
 
 /* ==========================================================================

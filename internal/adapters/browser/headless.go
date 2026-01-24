@@ -2,9 +2,12 @@ package browser
 
 import (
 	"context"
+	"io"
 	"os"
+
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/proto"
 )
 
 // HeadlessBrowser provides headless browser functionality for PDF generation
@@ -14,12 +17,12 @@ type HeadlessBrowser struct {
 
 // NewHeadlessBrowser creates a new headless browser adapter
 func NewHeadlessBrowser() (*HeadlessBrowser, error) {
-	launcher := launcher.New().
+	l := launcher.New().
 		Headless(true).
 		Set("disable-gpu").
 		Set("disable-dev-shm-usage")
 
-	url, err := launcher.Launch()
+	url, err := l.Launch()
 	if err != nil {
 		return nil, err
 	}
@@ -34,20 +37,28 @@ func NewHeadlessBrowser() (*HeadlessBrowser, error) {
 
 // GeneratePDFFromHTML generates a PDF from HTML content
 func (h *HeadlessBrowser) GeneratePDFFromHTML(ctx context.Context, htmlContent string, outputPath string) error {
-	page, err := h.browser.NewPage()
+	page, err := h.browser.Page(proto.TargetCreateTarget{URL: "about:blank"})
 	if err != nil {
 		return err
 	}
 	defer page.Close()
 
-	if err := page.SetContent(htmlContent); err != nil {
+	if err := page.SetDocumentContent(htmlContent); err != nil {
 		return err
 	}
 
-	pdf, err := page.PDF(&rod.PDFOptions{
-		Landscape: false,
+	// Wait for page to be ready
+	page.MustWaitStable()
+
+	reader, err := page.PDF(&proto.PagePrintToPDF{
+		Landscape:       false,
 		PrintBackground: true,
 	})
+	if err != nil {
+		return err
+	}
+
+	pdf, err := io.ReadAll(reader)
 	if err != nil {
 		return err
 	}
@@ -59,4 +70,3 @@ func (h *HeadlessBrowser) GeneratePDFFromHTML(ctx context.Context, htmlContent s
 func (h *HeadlessBrowser) Close() error {
 	return h.browser.Close()
 }
-

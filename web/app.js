@@ -2,6 +2,25 @@
 
 let selectedFiles = [];
 
+// Supported file types for FR-01
+const SUPPORTED_EXTENSIONS = ['.xlsx'];
+const XLSX_MIME_TYPES = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+];
+
+// Validates if a file is a supported .xlsx file
+function isValidXlsxFile(file) {
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = SUPPORTED_EXTENSIONS.some(ext => fileName.endsWith(ext));
+    const hasValidMimeType = XLSX_MIME_TYPES.includes(file.type) || file.type === '';
+    return hasValidExtension && hasValidMimeType;
+}
+
+// Gets file extension from filename
+function getFileExtension(filename) {
+    return filename.slice(filename.lastIndexOf('.')).toLowerCase();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -42,9 +61,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addFiles(files) {
-        selectedFiles = [...selectedFiles, ...files];
+        const validFiles = [];
+        const invalidFiles = [];
+
+        files.forEach(file => {
+            if (isValidXlsxFile(file)) {
+                validFiles.push(file);
+            } else {
+                invalidFiles.push(file);
+            }
+        });
+
+        // Add valid files to selection
+        selectedFiles = [...selectedFiles, ...validFiles];
         updateFileList();
         convertButton.disabled = selectedFiles.length === 0;
+
+        // Show error for invalid files
+        if (invalidFiles.length > 0) {
+            showValidationError(invalidFiles);
+        }
+    }
+
+    function showValidationError(invalidFiles) {
+        const results = document.getElementById('results');
+        const fileNames = invalidFiles.map(f => f.name).join(', ');
+        results.innerHTML = `
+            <div class="result-item error">
+                <strong>Invalid file type</strong>
+                <p>The following files are not supported: ${fileNames}</p>
+                <p>Supported format: .xlsx (Excel files)</p>
+            </div>
+        `;
     }
 
     function updateFileList() {
@@ -56,7 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
         fileList.style.display = 'block';
         fileItems.innerHTML = selectedFiles.map((file, index) => `
             <li class="file-item">
-                <span>${file.name}</span>
+                <span class="file-icon xlsx-icon">📊</span>
+                <span class="file-name">${file.name}</span>
+                <span class="file-type-badge">XLSX</span>
                 <button onclick="removeFile(${index})">Remove</button>
             </li>
         `).join('');
