@@ -8,7 +8,7 @@ This project follows hexagonal (ports and adapters) architecture principles:
 
 - **Driving Adapters**: GUI (Wails)
 - **Domain Core**: Pure Go business logic
-- **Driven Adapters**: Filesystem, WebAssembly runtime, Headless browser
+- **Driven Adapters**: Filesystem, Headless browser
 
 ## Project Structure
 
