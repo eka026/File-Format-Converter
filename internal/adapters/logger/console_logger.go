@@ -1,6 +1,10 @@
 package logger
 
 import (
+	"fmt"
+	"os"
+
+	"github.com/eka026/File-Format-Converter/internal/domain"
 	"github.com/eka026/File-Format-Converter/internal/ports"
 )
 
@@ -25,18 +29,39 @@ func NewConsoleLogger(level LogLevel) ports.ILogger {
 	}
 }
 
+// DomainLoggerAdapter adapts ConsoleLogger to domain.Logger interface
+type DomainLoggerAdapter struct {
+	*ConsoleLogger
+}
+
+// NewDomainLoggerAdapter creates a domain Logger adapter
+func NewDomainLoggerAdapter(level LogLevel) domain.Logger {
+	return &DomainLoggerAdapter{
+		ConsoleLogger: &ConsoleLogger{level: level},
+	}
+}
+
 // Info logs an informational message
 func (l *ConsoleLogger) Info(msg string) {
-	// Implementation will be added
+	if l.level <= LogLevelInfo {
+		fmt.Fprintf(os.Stdout, "[INFO] %s\n", msg)
+	}
 }
 
 // Error logs an error message
 func (l *ConsoleLogger) Error(msg string, err error) {
-	// Implementation will be added
+	if l.level <= LogLevelError {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[ERROR] %s: %v\n", msg, err)
+		} else {
+			fmt.Fprintf(os.Stderr, "[ERROR] %s\n", msg)
+		}
+	}
 }
 
 // Debug logs a debug message
 func (l *ConsoleLogger) Debug(msg string) {
-	// Implementation will be added
+	if l.level <= LogLevelDebug {
+		fmt.Fprintf(os.Stdout, "[DEBUG] %s\n", msg)
+	}
 }
-

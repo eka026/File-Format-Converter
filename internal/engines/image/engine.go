@@ -1,6 +1,7 @@
 package image
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -24,11 +25,21 @@ func NewImageEngine(workerPool *WorkerPool, webpEncoder *WebPEncoder) domain.ICo
 }
 
 // Convert converts an image from one format to another
-func (e *ImageEngine) Convert(input, output string) error {
+func (e *ImageEngine) Convert(ctx context.Context, input, output string) error {
+	// Check for cancellation before starting
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	// Load image using imaging library
 	img, err := imaging.Open(input)
 	if err != nil {
 		return err
+	}
+
+	// Check for cancellation after loading
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	// Determine output format from file extension
@@ -36,7 +47,7 @@ func (e *ImageEngine) Convert(input, output string) error {
 	
 	switch ext {
 	case ".webp":
-		return e.webpEncoder.Encode(img, output)
+		return e.webpEncoder.Encode(ctx, img, output)
 	case ".jpeg", ".jpg":
 		// JPEG format - imaging.Save will handle this automatically
 		return imaging.Save(img, output)
@@ -50,7 +61,11 @@ func (e *ImageEngine) Convert(input, output string) error {
 }
 
 // Validate checks if the input file is a valid image
-func (e *ImageEngine) Validate(file string) error {
+func (e *ImageEngine) Validate(ctx context.Context, file string) error {
+	// Check for cancellation
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	_, err := imaging.Open(file)
 	return err
 }
@@ -88,8 +103,10 @@ func (e *ImageEngine) BatchConvert(tasks []BatchConversionTask) []BatchConversio
 		e.workerPool.Submit(func() {
 			defer wg.Done()
 
-			// Perform the conversion
-			err := e.Convert(task.InputPath, task.OutputPath)
+			// Perform the conversion with background context
+			// Note: For batch operations, we use background context as cancellation
+			// should be handled at the batch level, not individual task level
+			err := e.Convert(context.Background(), task.InputPath, task.OutputPath)
 
 			// Store result thread-safely
 			mu.Lock()
@@ -105,5 +122,12 @@ func (e *ImageEngine) BatchConvert(tasks []BatchConversionTask) []BatchConversio
 	wg.Wait()
 
 	return results
+}
+
+// Close closes the worker pool to prevent goroutine leaks
+func (e *ImageEngine) Close() {
+	if e.workerPool != nil {
+		e.workerPool.Close()
+	}
 }
 

@@ -1,6 +1,7 @@
 package spreadsheet
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -27,7 +28,12 @@ func NewSpreadsheetEngine(htmlRenderer *HTMLRenderer, pdfGenerator *PDFGenerator
 }
 
 // Convert converts an Excel file to PDF
-func (e *SpreadsheetEngine) Convert(input, output string) error {
+func (e *SpreadsheetEngine) Convert(ctx context.Context, input, output string) error {
+	// Check for cancellation before starting
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	// Parse Excel file using excelize via our parser
 	f, err := e.parser.Parse(input)
 	if err != nil {
@@ -35,14 +41,24 @@ func (e *SpreadsheetEngine) Convert(input, output string) error {
 	}
 	defer f.Close()
 
+	// Check for cancellation after parsing
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	// Convert to HTML (internally parses workbook data)
 	htmlContent, err := e.htmlRenderer.Render(f)
 	if err != nil {
 		return fmt.Errorf("rendering html: %w", err)
 	}
 
+	// Check for cancellation after rendering
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	// Generate PDF from HTML
-	if err := e.pdfGenerator.Generate(htmlContent, output); err != nil {
+	if err := e.pdfGenerator.Generate(ctx, htmlContent, output); err != nil {
 		return fmt.Errorf("generating pdf: %w", err)
 	}
 
@@ -66,7 +82,11 @@ func (e *SpreadsheetEngine) ConvertBytes(data []byte) (string, error) {
 }
 
 // Validate checks if the input file is a valid Excel file
-func (e *SpreadsheetEngine) Validate(file string) error {
+func (e *SpreadsheetEngine) Validate(ctx context.Context, file string) error {
+	// Check for cancellation
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	f, err := e.parser.Parse(file)
 	if err != nil {
 		return fmt.Errorf("invalid excel file: %w", err)
@@ -118,8 +138,10 @@ func (e *SpreadsheetEngine) BatchConvert(tasks []BatchConversionTask) []BatchCon
 		e.workerPool.Submit(func() {
 			defer wg.Done()
 
-			// Perform the conversion
-			err := e.Convert(task.InputPath, task.OutputPath)
+			// Perform the conversion with background context
+			// Note: For batch operations, we use background context as cancellation
+			// should be handled at the batch level, not individual task level
+			err := e.Convert(context.Background(), task.InputPath, task.OutputPath)
 
 			// Store result thread-safely
 			mu.Lock()

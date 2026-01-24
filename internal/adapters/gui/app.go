@@ -5,16 +5,24 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/eka026/File-Format-Converter/internal/adapters/browser"
+	"github.com/eka026/File-Format-Converter/internal/adapters/filesystem"
+	"github.com/eka026/File-Format-Converter/internal/adapters/logger"
+	"github.com/eka026/File-Format-Converter/internal/adapters/progress"
 	"github.com/eka026/File-Format-Converter/internal/domain"
 	"github.com/eka026/File-Format-Converter/internal/engines/document"
 	"github.com/eka026/File-Format-Converter/internal/engines/image"
 	"github.com/eka026/File-Format-Converter/internal/engines/spreadsheet"
+)
+
+const (
+	// tempFileCleanupDelay is the delay before cleaning up temporary files
+	// to ensure file operations are complete
+	tempFileCleanupDelay = 5 * time.Second
 )
 
 // ConversionResult represents the result of a file conversion
@@ -27,15 +35,19 @@ type ConversionResult struct {
 // App represents the GUI application adapter
 type App struct {
 	ctx               context.Context
-	spreadsheetEngine *spreadsheet.SpreadsheetEngine
+	converterService  *domain.ConverterService
+	spreadsheetEngine domain.IConverter
 	documentEngine    domain.IConverter
 	imageEngine       domain.IConverter
 	headlessBrowser   *browser.HeadlessBrowser
+	logger            domain.Logger
 }
 
 // NewApp creates a new GUI application instance
 func NewApp() *App {
-	return &App{}
+	return &App{
+		logger: logger.NewDomainLoggerAdapter(logger.LogLevelInfo),
+	}
 }
 
 // OnStartup is called when the application starts
@@ -46,7 +58,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	browser, err := browser.NewHeadlessBrowser()
 	if err != nil {
 		// Log error but don't fail startup - browser will be initialized lazily
-		fmt.Printf("Warning: Could not initialize headless browser: %v\n", err)
+		a.logger.Error("Could not initialize headless browser", err)
 	} else {
 		a.headlessBrowser = browser
 	}
@@ -54,8 +66,13 @@ func (a *App) OnStartup(ctx context.Context) {
 	// Initialize engines
 	if a.headlessBrowser != nil {
 		if err := a.initializeEngines(); err != nil {
-			fmt.Printf("Warning: Could not initialize engines: %v\n", err)
+			a.logger.Error("Could not initialize engines", err)
 		}
+	}
+
+	// Initialize ConverterService with engines
+	if err := a.initializeConverterService(); err != nil {
+		a.logger.Error("Could not initialize converter service", err)
 	}
 }
 
@@ -71,9 +88,14 @@ func (a *App) OnShutdown(ctx context.Context) {
 		a.headlessBrowser.Close()
 	}
 
+	// Close ImageEngine worker pool to prevent goroutine leaks
+	if imgEngine, ok := a.imageEngine.(*image.ImageEngine); ok {
+		imgEngine.Close()
+	}
+
 	// Clean up all temp files on shutdown
 	if err := a.CleanupTempFiles(); err != nil {
-		fmt.Printf("Warning: Failed to cleanup temp files: %v\n", err)
+		a.logger.Error("Failed to cleanup temp files", err)
 	}
 }
 
@@ -87,89 +109,19 @@ func (a *App) ConvertFile(sourcePath, targetFormat string) ConversionResult {
 // ConvertFileWithPath handles file conversion with a specific output path
 // If outputPath is empty, shows a save dialog
 func (a *App) ConvertFileWithPath(sourcePath, targetFormat, outputPath string) ConversionResult {
-	// Detect file type and validate
-	fileType := a.detectFileType(sourcePath)
-
-	// Validate .docx files (FR-05 requirement)
-	if fileType == domain.FileTypeDOCX {
-		// Validate DOCX file structure - this satisfies FR-05
-		if err := a.validateDOCXFile(sourcePath); err != nil {
+	// Ensure ConverterService is initialized
+	if a.converterService == nil {
+		if err := a.initializeConverterService(); err != nil {
 			return ConversionResult{
 				Success: false,
-				Error:   fmt.Sprintf("Invalid .docx file: %v", err),
+				Error:   fmt.Sprintf("Failed to initialize converter service: %v", err),
 			}
-		}
-
-		// Initialize document engine if not already initialized
-		if a.documentEngine == nil {
-			if err := a.initializeDocumentEngine(); err != nil {
-				return ConversionResult{
-					Success: false,
-					Error:   fmt.Sprintf("Failed to initialize document engine: %v", err),
-				}
-			}
-		}
-	} else if fileType == domain.FileTypeXLSX {
-		// Handle XLSX files with spreadsheet engine
-		if a.spreadsheetEngine == nil {
-			if err := a.initializeSpreadsheetEngine(); err != nil {
-				return ConversionResult{
-					Success: false,
-					Error:   fmt.Sprintf("Failed to initialize spreadsheet engine: %v", err),
-				}
-			}
-		}
-	} else if fileType == domain.FileTypeJPEG || fileType == domain.FileTypePNG {
-		// Validate image files (FR-08 requirement)
-		if err := a.validateImageFile(sourcePath, fileType); err != nil {
-			return ConversionResult{
-				Success: false,
-				Error:   fmt.Sprintf("Invalid image file: %v", err),
-			}
-		}
-
-		// Initialize image engine if not already initialized
-		if a.imageEngine == nil {
-			if err := a.initializeImageEngine(); err != nil {
-				return ConversionResult{
-					Success: false,
-					Error:   fmt.Sprintf("Failed to initialize image engine: %v", err),
-				}
-			}
-		}
-	} else {
-		return ConversionResult{
-			Success: false,
-			Error:   fmt.Sprintf("Unsupported file type: %s", fileType),
 		}
 	}
 
-	// Select appropriate engine for conversion
-	var engine domain.IConverter
-	switch fileType {
-	case domain.FileTypeDOCX:
-		engine = a.documentEngine
-	case domain.FileTypeXLSX:
-		engine = a.spreadsheetEngine
-	case domain.FileTypeJPEG, domain.FileTypePNG:
-		engine = a.imageEngine
-	default:
-		return ConversionResult{
-			Success: false,
-			Error:   fmt.Sprintf("Unsupported file type: %s", fileType),
-		}
-	}
-
-	if engine == nil {
-		return ConversionResult{
-			Success: false,
-			Error:   "Conversion engine not available",
-		}
-	}
-
-	// Track if we're using a temp file
-	var tempFilePath string
+	// Track if output is in temp directory for cleanup scheduling
 	var isTempFile bool
+	var tempFilePath string
 
 	// If no output path provided, use default location (skip dialog to avoid WebSocket issues)
 	if outputPath == "" {
@@ -178,7 +130,9 @@ func (a *App) ConvertFileWithPath(sourcePath, targetFormat, outputPath string) C
 
 		// If source is in temp directory, save to user's Downloads folder instead
 		tempDir := filepath.Join(os.TempDir(), "file-format-converter")
-		if strings.HasPrefix(sourcePath, tempDir) {
+		cleanSourcePath := filepath.Clean(sourcePath)
+		cleanTempDir := filepath.Clean(tempDir)
+		if strings.HasPrefix(cleanSourcePath, cleanTempDir) {
 			// Get user's Downloads folder
 			homeDir, err := os.UserHomeDir()
 			if err == nil {
@@ -192,49 +146,42 @@ func (a *App) ConvertFileWithPath(sourcePath, targetFormat, outputPath string) C
 				outputPath = filepath.Join(downloadsDir, baseName+"."+formatExt)
 			}
 		}
-	} else {
-		// Check if output path is in temp directory
-		tempDir := filepath.Join(os.TempDir(), "file-format-converter")
-		if strings.HasPrefix(outputPath, tempDir) {
-			isTempFile = true
-			tempFilePath = outputPath
-		}
 	}
 
-	// Perform conversion to temp location first (for cleanup safety)
-	tempOutputPath := filepath.Join(os.TempDir(), "file-format-converter", filepath.Base(outputPath))
-	if err := os.MkdirAll(filepath.Dir(tempOutputPath), 0755); err != nil {
+	// Check if output path is in temp directory
+	tempDir := filepath.Join(os.TempDir(), "file-format-converter")
+	cleanOutputPath := filepath.Clean(outputPath)
+	cleanTempDir := filepath.Clean(tempDir)
+	if strings.HasPrefix(cleanOutputPath, cleanTempDir) {
+		isTempFile = true
+		tempFilePath = outputPath
+	}
+
+	// Create output directory if it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
 		return ConversionResult{
 			Success: false,
-			Error:   fmt.Sprintf("Failed to create temp directory: %v", err),
+			Error:   fmt.Sprintf("Failed to create output directory: %v", err),
 		}
 	}
 
-	// Convert to temp location using the selected engine
-	err := engine.Convert(sourcePath, tempOutputPath)
-	if err != nil {
-		// Clean up temp file on error
-		os.Remove(tempOutputPath)
+	// Convert directly to final destination (no temp file copy needed)
+	ctx := a.getContext()
+	result := a.converterService.Convert(ctx, sourcePath, outputPath)
+	if !result.Success {
+		// Clean up output file on error if it was created
+		os.Remove(outputPath)
+		errorMsg := "Conversion failed"
+		if result.Error != nil {
+			errorMsg = result.Error.Error()
+		}
 		return ConversionResult{
 			Success: false,
-			Error:   fmt.Sprintf("Conversion failed: %v", err),
+			Error:   errorMsg,
 		}
 	}
 
-	// Copy from temp to final location
-	if err := a.copyFile(tempOutputPath, outputPath); err != nil {
-		// Clean up temp file on error
-		os.Remove(tempOutputPath)
-		return ConversionResult{
-			Success: false,
-			Error:   fmt.Sprintf("Failed to save file: %v", err),
-		}
-	}
-
-	// Clean up temp file after successful copy
-	os.Remove(tempOutputPath)
-
-	// If the final output is also in temp, mark it for cleanup
+	// If the final output is in temp, mark it for cleanup
 	if isTempFile {
 		// Schedule cleanup of temp file (could be done on app shutdown or after a delay)
 		go a.scheduleTempFileCleanup(tempFilePath)
@@ -253,16 +200,14 @@ func (a *App) BatchConvertFiles(files []string, targetFormat string) []Conversio
 		return nil
 	}
 
-	// Detect file types for all files
-	fileTypes := make([]domain.FileType, len(files))
-	for i, file := range files {
-		fileTypes[i] = a.detectFileType(file)
-	}
+	// Detect file types and check if all are the same type with short-circuiting
+	// Detect first file type
+	firstType := a.detectFileType(files[0])
 
-	// Check if all files are of the same type
-	firstType := fileTypes[0]
+	// Check remaining files, short-circuiting on first mismatch
 	allSameType := true
-	for _, fileType := range fileTypes {
+	for i := 1; i < len(files); i++ {
+		fileType := a.detectFileType(files[i])
 		if fileType != firstType {
 			allSameType = false
 			break
@@ -276,28 +221,64 @@ func (a *App) BatchConvertFiles(files []string, targetFormat string) []Conversio
 			// All files are images - use parallel image conversion
 			if a.imageEngine != nil {
 				if imgEngine, ok := a.imageEngine.(*image.ImageEngine); ok {
-					return a.batchConvertImagesParallel(imgEngine, files, targetFormat, fileTypes)
+					return a.batchConvertImagesParallel(imgEngine, files, targetFormat)
+				} else {
+					a.logger.Error("Image engine type assertion failed, falling back to sequential processing", fmt.Errorf("expected *image.ImageEngine, got %T", a.imageEngine))
 				}
 			}
 		case domain.FileTypeDOCX:
 			// All files are documents - use parallel document conversion
 			if a.documentEngine != nil {
 				if docEngine, ok := a.documentEngine.(*document.DocumentEngine); ok {
-					return a.batchConvertDocumentsParallel(docEngine, files, targetFormat, fileTypes)
+					return a.batchConvertDocumentsParallel(docEngine, files, targetFormat)
+				} else {
+					a.logger.Error("Document engine type assertion failed, falling back to sequential processing", fmt.Errorf("expected *document.DocumentEngine, got %T", a.documentEngine))
 				}
 			}
 		case domain.FileTypeXLSX:
 			// All files are spreadsheets - use parallel spreadsheet conversion
 			if a.spreadsheetEngine != nil {
-				return a.batchConvertSpreadsheetsParallel(a.spreadsheetEngine, files, targetFormat, fileTypes)
+				if se, ok := a.spreadsheetEngine.(*spreadsheet.SpreadsheetEngine); ok {
+					return a.batchConvertSpreadsheetsParallel(se, files, targetFormat)
+				} else {
+					a.logger.Error("Spreadsheet engine type assertion failed, falling back to sequential processing", fmt.Errorf("expected *spreadsheet.SpreadsheetEngine, got %T", a.spreadsheetEngine))
+				}
 			}
 		}
 	}
 
-	// Fall back to sequential processing for mixed file types or if engines are not available
-	results := make([]ConversionResult, len(files))
-	for i, file := range files {
-		results[i] = a.ConvertFile(file, targetFormat)
+	// Fall back to using ConverterService for mixed file types or if engines are not available
+	if a.converterService == nil {
+		if err := a.initializeConverterService(); err != nil {
+			// Last resort: sequential processing without service
+			results := make([]ConversionResult, len(files))
+			for i, file := range files {
+				results[i] = a.ConvertFile(file, targetFormat)
+			}
+			return results
+		}
+	}
+
+	// Use ConverterService for batch conversion
+	ctx := a.getContext()
+	domainResults := a.converterService.BatchConvert(ctx, files, targetFormat)
+	results := make([]ConversionResult, len(domainResults))
+	for i, domainResult := range domainResults {
+		if domainResult.Success {
+			results[i] = ConversionResult{
+				Success:    true,
+				OutputPath: domainResult.OutputPath,
+			}
+		} else {
+			errorMsg := "Conversion failed"
+			if domainResult.Error != nil {
+				errorMsg = domainResult.Error.Error()
+			}
+			results[i] = ConversionResult{
+				Success: false,
+				Error:   errorMsg,
+			}
+		}
 	}
 
 	return results
@@ -308,7 +289,6 @@ func (a *App) batchConvertImagesParallel(
 	imgEngine *image.ImageEngine,
 	files []string,
 	targetFormat string,
-	fileTypes []domain.FileType,
 ) []ConversionResult {
 	// Initialize image engine if needed
 	if imgEngine == nil {
@@ -366,7 +346,6 @@ func (a *App) batchConvertDocumentsParallel(
 	docEngine *document.DocumentEngine,
 	files []string,
 	targetFormat string,
-	fileTypes []domain.FileType,
 ) []ConversionResult {
 	// Initialize document engine if needed
 	if docEngine == nil {
@@ -424,7 +403,6 @@ func (a *App) batchConvertSpreadsheetsParallel(
 	spreadsheetEngine *spreadsheet.SpreadsheetEngine,
 	files []string,
 	targetFormat string,
-	fileTypes []domain.FileType,
 ) []ConversionResult {
 	// Initialize spreadsheet engine if needed
 	if spreadsheetEngine == nil {
@@ -437,7 +415,16 @@ func (a *App) batchConvertSpreadsheetsParallel(
 			return results
 		}
 		// Re-cast after initialization
-		spreadsheetEngine = a.spreadsheetEngine
+		if se, ok := a.spreadsheetEngine.(*spreadsheet.SpreadsheetEngine); ok {
+			spreadsheetEngine = se
+		} else {
+			// Fall back to sequential if type assertion fails
+			results := make([]ConversionResult, len(files))
+			for i, file := range files {
+				results[i] = a.ConvertFile(file, targetFormat)
+			}
+			return results
+		}
 	}
 
 	// Prepare batch conversion tasks
@@ -477,7 +464,17 @@ func (a *App) batchConvertSpreadsheetsParallel(
 
 // GetSupportedFormats returns supported formats for the GUI
 func (a *App) GetSupportedFormats() []string {
-	return []string{"pdf", "html"}
+	if a.converterService == nil {
+		// Fallback to default formats if service not initialized
+		return []string{"pdf", "html"}
+	}
+
+	formats := a.converterService.GetSupportedFormats()
+	result := make([]string, len(formats))
+	for i, format := range formats {
+		result[i] = strings.ToLower(string(format))
+	}
+	return result
 }
 
 // OpenFile opens a file in the default system application
@@ -491,15 +488,32 @@ func (a *App) OpenFile(filePath string) error {
 	// Remove any leading backslash that might cause issues
 	normalizedPath = strings.TrimPrefix(normalizedPath, "\\")
 
+	// Validate path doesn't contain shell metacharacters that could cause command injection
+	if err := a.validatePathForShell(normalizedPath); err != nil {
+		return fmt.Errorf("invalid file path: %w", err)
+	}
+
 	// Verify file exists before trying to open
 	if _, err := os.Stat(normalizedPath); err != nil {
 		return fmt.Errorf("file does not exist: %s (error: %w)", normalizedPath, err)
 	}
 
-	// On Windows, use start command
-	// Use the path directly without extra quotes - exec.Command handles escaping
-	cmd := exec.Command("cmd", "/c", "start", "", normalizedPath)
-	if err := cmd.Run(); err != nil {
+	// Use os.StartProcess for safer execution (avoids shell interpretation)
+	// On Windows, use rundll32.exe to open file with default application
+	// This is safer than exec.Command as it doesn't involve shell interpretation
+	absPath, err := filepath.Abs(normalizedPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	// Use rundll32.exe which is safer than cmd.exe /c start
+	// This avoids shell metacharacter interpretation
+	_, err = os.StartProcess(
+		"rundll32.exe",
+		[]string{"rundll32.exe", "shell32.dll,ShellExec_RunDLL", absPath},
+		&os.ProcAttr{},
+	)
+	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
 
@@ -521,40 +535,6 @@ func (a *App) GetFileInfo(filePath string) map[string]interface{} {
 		"modTime": info.ModTime().Unix(),
 		"exists":  true,
 	}
-}
-
-// GetSavePath shows a save dialog and returns the selected path
-// Returns empty string if cancelled or on error (WebSocket connection issues)
-// NOTE: Currently disabled due to WebSocket connection issues - uses default location instead
-func (a *App) GetSavePath(defaultFileName string) string {
-	// Skip dialog to avoid WebSocket crashes - return empty to use default location
-	// The dialog can be re-enabled once Wails context connection is stable
-	return ""
-
-	/* Disabled dialog code - causes WebSocket crashes
-	ctx := a.getContext()
-	if ctx == nil {
-		return ""
-	}
-
-	savePath, err := runtime.SaveFileDialog(ctx, runtime.SaveDialogOptions{
-		Title:           "Save PDF As",
-		DefaultFilename: defaultFileName,
-		Filters: []runtime.FileFilter{
-			{
-				DisplayName: "PDF Files (*.pdf)",
-				Pattern:     "*.pdf",
-			},
-		},
-	})
-
-	if err != nil {
-		fmt.Printf("Warning: Save dialog failed: %v\n", err)
-		return ""
-	}
-
-	return savePath
-	*/
 }
 
 // SaveFileFromBytes saves file data to a temporary location and returns the file path
@@ -583,7 +563,7 @@ func (a *App) initializeEngines() error {
 	}
 	if err := a.initializeDocumentEngine(); err != nil {
 		// Document engine initialization is optional - log warning but don't fail
-		fmt.Printf("Warning: Could not initialize document engine: %v\n", err)
+		a.logger.Error("Could not initialize document engine", err)
 	}
 	return nil
 }
@@ -602,12 +582,7 @@ func (a *App) initializeSpreadsheetEngine() error {
 	pdfGenerator := spreadsheet.NewPDFGenerator(a.headlessBrowser)
 	engine := spreadsheet.NewSpreadsheetEngine(htmlRenderer, pdfGenerator)
 
-	// Extract the concrete type
-	if se, ok := engine.(*spreadsheet.SpreadsheetEngine); ok {
-		a.spreadsheetEngine = se
-	} else {
-		return fmt.Errorf("failed to cast engine to SpreadsheetEngine")
-	}
+	a.spreadsheetEngine = engine
 
 	return nil
 }
@@ -644,6 +619,40 @@ func (a *App) initializeImageEngine() error {
 	return nil
 }
 
+// initializeConverterService initializes the ConverterService with all engines
+func (a *App) initializeConverterService() error {
+	// Create adapters for domain interfaces
+	domainLogger := logger.NewDomainLoggerAdapter(logger.LogLevelInfo)
+	domainProgressNotifier := progress.NewDomainProgressNotifierAdapter()
+	domainFileWriter := filesystem.NewDomainFileWriterAdapter("")
+
+	// Build engines map
+	engines := make(map[domain.FileType]domain.IConverter)
+
+	// Add engines if they're initialized
+	if a.spreadsheetEngine != nil {
+		engines[domain.FileTypeXLSX] = a.spreadsheetEngine
+	}
+	if a.documentEngine != nil {
+		engines[domain.FileTypeDOCX] = a.documentEngine
+	}
+	if a.imageEngine != nil {
+		engines[domain.FileTypeJPEG] = a.imageEngine
+		engines[domain.FileTypePNG] = a.imageEngine
+		engines[domain.FileTypeWEBP] = a.imageEngine
+	}
+
+	// Create ConverterService
+	a.converterService = domain.NewConverterService(
+		engines,
+		domainLogger,
+		domainProgressNotifier,
+		domainFileWriter,
+	)
+
+	return nil
+}
+
 // detectFileType detects the file type from the file extension
 func (a *App) detectFileType(filePath string) domain.FileType {
 	ext := strings.ToLower(filepath.Ext(filePath))
@@ -664,43 +673,9 @@ func (a *App) detectFileType(filePath string) domain.FileType {
 }
 
 // validateDOCXFile validates a .docx file (FR-05 requirement)
+// Uses the consolidated validation function from the document package
 func (a *App) validateDOCXFile(filePath string) error {
-	// Import document package validation function
-	// We'll use a simple validation approach that doesn't require the full engine
-	ext := strings.ToLower(filepath.Ext(filePath))
-	if ext != ".docx" {
-		return fmt.Errorf("file does not have .docx extension")
-	}
-
-	// Check if file exists
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
-		return fmt.Errorf("file does not exist: %w", err)
-	}
-
-	if fileInfo.IsDir() {
-		return fmt.Errorf("path is a directory, not a file")
-	}
-
-	// Basic structure validation - check if it's a valid ZIP (DOCX files are ZIP archives)
-	// We'll do a minimal check by trying to read it as a ZIP
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("cannot open file: %w", err)
-	}
-	defer file.Close()
-
-	// Check ZIP file signature (first 4 bytes should be "PK\x03\x04")
-	signature := make([]byte, 4)
-	if _, err := file.Read(signature); err != nil {
-		return fmt.Errorf("cannot read file: %w", err)
-	}
-
-	if signature[0] != 'P' || signature[1] != 'K' || signature[2] != 0x03 || signature[3] != 0x04 {
-		return fmt.Errorf("invalid DOCX file: not a valid ZIP archive")
-	}
-
-	return nil
+	return document.ValidateDOCX(filePath)
 }
 
 // validateImageFile validates a JPEG or PNG image file (FR-08 requirement)
@@ -805,7 +780,9 @@ func (a *App) copyFile(src, dst string) error {
 func (a *App) DeleteTempFile(filePath string) error {
 	// Only delete files in temp directory for safety
 	tempDir := filepath.Join(os.TempDir(), "file-format-converter")
-	if !strings.HasPrefix(filePath, tempDir) {
+	cleanFilePath := filepath.Clean(filePath)
+	cleanTempDir := filepath.Clean(tempDir)
+	if !strings.HasPrefix(cleanFilePath, cleanTempDir) {
 		return fmt.Errorf("file is not in temp directory, refusing to delete")
 	}
 	return os.Remove(filePath)
@@ -829,9 +806,45 @@ func (a *App) scheduleTempFileCleanup(filePath string) {
 	// In production, you might want to schedule this
 	go func() {
 		// Small delay to ensure file operations are complete
-		time.Sleep(5 * time.Second)
+		time.Sleep(tempFileCleanupDelay)
 		a.DeleteTempFile(filePath)
 	}()
+}
+
+// validatePathForShell validates that a file path doesn't contain shell metacharacters
+// that could be used for command injection attacks
+func (a *App) validatePathForShell(path string) error {
+	// Windows cmd.exe metacharacters that could be dangerous
+	dangerousChars := []string{
+		"&",  // command separator
+		"|",  // pipe
+		"&&", // conditional execution
+		"||", // conditional execution
+		";",  // command separator
+		"<",  // input redirection
+		">",  // output redirection
+		"^",  // escape character
+		"%",  // variable expansion (in some contexts)
+		"`",  // command substitution (PowerShell)
+		"$",  // variable expansion (PowerShell)
+		"(",  // command grouping
+		")",  // command grouping
+	}
+
+	// Check for dangerous character sequences
+	for _, char := range dangerousChars {
+		if strings.Contains(path, char) {
+			return fmt.Errorf("path contains potentially dangerous character: %s", char)
+		}
+	}
+
+	// Additional validation: ensure path doesn't start with command prefixes
+	lowerPath := strings.ToLower(path)
+	if strings.HasPrefix(lowerPath, "cmd") || strings.HasPrefix(lowerPath, "powershell") {
+		return fmt.Errorf("path cannot start with command interpreter name")
+	}
+
+	return nil
 }
 
 // getContext returns the current window context

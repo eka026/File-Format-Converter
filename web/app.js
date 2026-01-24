@@ -61,6 +61,16 @@ function getFileExtension(filename) {
     return filename.slice(filename.lastIndexOf('.')).toLowerCase();
 }
 
+// Escapes HTML special characters to prevent XSS attacks
+function escapeHtml(text) {
+    if (text == null) {
+        return '';
+    }
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -129,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showValidationError(invalidFiles) {
         const results = document.getElementById('results');
-        const fileNames = invalidFiles.map(f => f.name).join(', ');
+        const fileNames = invalidFiles.map(f => escapeHtml(f.name)).join(', ');
         results.innerHTML = `
             <div class="result-item error">
                 <strong>Invalid file type</strong>
@@ -172,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return `
             <li class="file-item">
                 <span class="file-icon">${fileIcon}</span>
-                <span class="file-name">${file.name}</span>
+                <span class="file-name">${escapeHtml(file.name)}</span>
                 <span class="file-type-badge">${fileType}</span>
                 <button onclick="removeFile(${index})">Remove</button>
             </li>
@@ -299,13 +309,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const conversionResults = [];
         
         // Verify required methods exist
-        if (!app.ConvertFile || !app.SaveFileFromBytes) {
+        if (!app.ConvertFile || !app.SaveFileFromBytes || !app.CleanupTempInputFile) {
             results.innerHTML = `
                 <div class="result-item error">
                     <strong>Error</strong>
                     <p>Required backend methods are not available. Please rebuild the application.</p>
                     <p style="font-size: 0.85em; margin-top: 8px;">
-                        Missing: ${!app.ConvertFile ? 'ConvertFile ' : ''}${!app.SaveFileFromBytes ? 'SaveFileFromBytes' : ''}
+                        Missing: ${!app.ConvertFile ? 'ConvertFile ' : ''}${!app.SaveFileFromBytes ? 'SaveFileFromBytes ' : ''}${!app.CleanupTempInputFile ? 'CleanupTempInputFile' : ''}
                     </p>
                 </div>
             `;
@@ -471,12 +481,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const safeFileName = fileName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                     // Use data attribute to store the full path safely
                     const safePathAttr = result.outputPath.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    const formatDisplayName = targetFormat.toUpperCase();
                     resultHTML += `
                         <div class="result-item success file-result" data-file-path="${safePathAttr}">
                             <p><strong>File ${index + 1}:</strong> ${safeFileName}</p>
                             <p class="file-path">${safeDisplayPath}</p>
                             <div class="file-actions">
-                                <button class="action-button open-pdf-btn">Open PDF</button>
+                                <button class="action-button open-pdf-btn">Open ${formatDisplayName}</button>
                                 <button class="action-button show-folder-btn">Show in Folder</button>
                             </div>
                         </div>
@@ -528,7 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
             results.innerHTML = `
                 <div class="result-item error">
                     <strong>Conversion Error</strong>
-                    <p>${error.message || 'An unexpected error occurred during conversion'}</p>
+                    <p>${escapeHtml(error.message || 'An unexpected error occurred during conversion')}</p>
                     <p style="font-size: 0.85em; margin-top: 8px; color: var(--text-tertiary);">
                         Check the browser console for more details.
                     </p>
@@ -552,7 +563,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
+            // Check if Wails API is available
+            if (typeof window.go === 'undefined' || !window.go.gui || !window.go.gui.App) {
+                alert('Backend connection not available. Please ensure the application is running properly.');
+                return;
+            }
+            
             const app = window.go.gui.App;
+            
+            // Verify required method exists
+            if (!app.OpenFile) {
+                alert('OpenFile method is not available. Please rebuild the application.');
+                return;
+            }
+            
             await app.OpenFile(filePath);
         } catch (error) {
             console.error('Failed to open file:', error);

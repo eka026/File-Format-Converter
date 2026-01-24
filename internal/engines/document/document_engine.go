@@ -33,17 +33,32 @@ func NewDocumentEngine(pdfGenerator *browser.HeadlessBrowser) domain.IConverter 
 
 // Convert converts a DOCX file to the specified output format
 // Input and output are file paths (matches domain.IConverter interface)
-func (e *DocumentEngine) Convert(input, output string) error {
+func (e *DocumentEngine) Convert(ctx context.Context, input, output string) error {
+	// Check for cancellation before starting
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	// Read DOCX file
 	docxData, err := os.ReadFile(input)
 	if err != nil {
 		return fmt.Errorf("reading docx file: %w", err)
 	}
 
+	// Check for cancellation after reading
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
 	// Parse DOCX file
 	doc, err := e.parser.Parse(docxData)
 	if err != nil {
 		return fmt.Errorf("parsing docx: %w", err)
+	}
+
+	// Check for cancellation after parsing
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	// Convert to HTML
@@ -61,7 +76,7 @@ func (e *DocumentEngine) Convert(input, output string) error {
 		if e.pdfGenerator == nil {
 			return fmt.Errorf("pdf generator not available")
 		}
-		ctx := context.Background()
+		// Use the provided context instead of Background()
 		return e.pdfGenerator.GeneratePDFFromHTML(ctx, htmlContent, output)
 	}
 
@@ -95,8 +110,12 @@ func getFileExtension(filename string) string {
 }
 
 // Validate checks if the input file is valid for this converter
-func (e *DocumentEngine) Validate(file string) error {
-	return validateDOCX(file)
+func (e *DocumentEngine) Validate(ctx context.Context, file string) error {
+	// Check for cancellation
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return ValidateDOCX(file)
 }
 
 // BatchConversionTask represents a single conversion task in a batch
@@ -132,8 +151,10 @@ func (e *DocumentEngine) BatchConvert(tasks []BatchConversionTask) []BatchConver
 		e.workerPool.Submit(func() {
 			defer wg.Done()
 
-			// Perform the conversion
-			err := e.Convert(task.InputPath, task.OutputPath)
+			// Perform the conversion with background context
+			// Note: For batch operations, we use background context as cancellation
+			// should be handled at the batch level, not individual task level
+			err := e.Convert(context.Background(), task.InputPath, task.OutputPath)
 
 			// Store result thread-safely
 			mu.Lock()

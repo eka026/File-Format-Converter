@@ -13,8 +13,9 @@ func readDOCX(filePath string) ([]byte, error) {
 	return os.ReadFile(filePath)
 }
 
-// validateDOCX validates that a file is a valid DOCX file
-func validateDOCX(filePath string) error {
+// ValidateDOCX validates that a file is a valid DOCX file
+// This function consolidates all DOCX validation logic in one place
+func ValidateDOCX(filePath string) error {
 	// Check if file exists
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {

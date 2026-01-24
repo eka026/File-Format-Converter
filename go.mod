@@ -3,11 +3,11 @@ module github.com/eka026/File-Format-Converter
 go 1.22.0
 
 require (
+	github.com/chai2010/webp v1.4.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/go-rod/rod v0.114.7
 	github.com/wailsapp/wails/v2 v2.11.0
 	github.com/xuri/excelize/v2 v2.8.0
-	go.uber.org/zap v1.26.0
 )
 
 require (
@@ -44,7 +44,6 @@ require (
 	github.com/ysmood/got v0.34.1 // indirect
 	github.com/ysmood/gson v0.7.3 // indirect
 	github.com/ysmood/leakless v0.8.0 // indirect
-	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/image v0.12.0 // indirect
 	golang.org/x/net v0.35.0 // indirect

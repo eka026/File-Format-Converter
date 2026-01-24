@@ -18,8 +18,7 @@ func NewPDFGenerator(browser *browser.HeadlessBrowser) *PDFGenerator {
 }
 
 // Generate generates a PDF file from HTML content
-func (g *PDFGenerator) Generate(htmlContent, outputPath string) error {
-	ctx := context.Background()
+func (g *PDFGenerator) Generate(ctx context.Context, htmlContent, outputPath string) error {
 	return g.browser.GeneratePDFFromHTML(ctx, htmlContent, outputPath)
 }
 

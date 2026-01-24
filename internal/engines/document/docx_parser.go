@@ -106,9 +106,9 @@ func (p *DocxParser) Parse(data []byte) (*DocxDocument, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opening document.xml: %w", err)
 			}
-			defer rc.Close()
 
 			docXML, err = io.ReadAll(rc)
+			rc.Close() // Close immediately after reading
 			if err != nil {
 				return nil, fmt.Errorf("reading document.xml: %w", err)
 			}
