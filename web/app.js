@@ -2,18 +2,35 @@
 
 let selectedFiles = [];
 
-// Supported file types for FR-01
-const SUPPORTED_EXTENSIONS = ['.xlsx'];
+// Supported file types
+const SUPPORTED_EXTENSIONS = ['.xlsx', '.docx'];
 const XLSX_MIME_TYPES = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+];
+const DOCX_MIME_TYPES = [
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword'
 ];
 
 // Validates if a file is a supported .xlsx file
 function isValidXlsxFile(file) {
     const fileName = file.name.toLowerCase();
-    const hasValidExtension = SUPPORTED_EXTENSIONS.some(ext => fileName.endsWith(ext));
+    const hasValidExtension = fileName.endsWith('.xlsx');
     const hasValidMimeType = XLSX_MIME_TYPES.includes(file.type) || file.type === '';
     return hasValidExtension && hasValidMimeType;
+}
+
+// Validates if a file is a supported .docx file (FR-05)
+function isValidDocxFile(file) {
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = fileName.endsWith('.docx');
+    const hasValidMimeType = DOCX_MIME_TYPES.includes(file.type) || file.type === '';
+    return hasValidExtension && hasValidMimeType;
+}
+
+// Validates if a file is a supported file type
+function isValidFile(file) {
+    return isValidXlsxFile(file) || isValidDocxFile(file);
 }
 
 // Gets file extension from filename
@@ -65,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const invalidFiles = [];
 
         files.forEach(file => {
-            if (isValidXlsxFile(file)) {
+            if (isValidFile(file)) {
                 validFiles.push(file);
             } else {
                 invalidFiles.push(file);
@@ -90,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="result-item error">
                 <strong>Invalid file type</strong>
                 <p>The following files are not supported: ${fileNames}</p>
-                <p>Supported format: .xlsx (Excel files)</p>
+                <p>Supported formats: .xlsx (Excel files), .docx (Word documents)</p>
             </div>
         `;
     }
@@ -102,14 +119,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         fileList.style.display = 'block';
-        fileItems.innerHTML = selectedFiles.map((file, index) => `
+        fileItems.innerHTML = selectedFiles.map((file, index) => {
+            const fileName = file.name.toLowerCase();
+            const isDocx = fileName.endsWith('.docx');
+            const isXlsx = fileName.endsWith('.xlsx');
+            const fileType = isDocx ? 'DOCX' : (isXlsx ? 'XLSX' : 'UNKNOWN');
+            const fileIcon = isDocx ? '📄' : (isXlsx ? '📊' : '📁');
+            
+            return `
             <li class="file-item">
-                <span class="file-icon xlsx-icon">📊</span>
+                <span class="file-icon">${fileIcon}</span>
                 <span class="file-name">${file.name}</span>
-                <span class="file-type-badge">XLSX</span>
+                <span class="file-type-badge">${fileType}</span>
                 <button onclick="removeFile(${index})">Remove</button>
             </li>
-        `).join('');
+        `;
+        }).join('');
     }
 
     window.removeFile = (index) => {

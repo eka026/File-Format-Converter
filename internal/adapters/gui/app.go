@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/eka026/File-Format-Converter/internal/adapters/browser"
+	"github.com/eka026/File-Format-Converter/internal/domain"
 	"github.com/eka026/File-Format-Converter/internal/engines/spreadsheet"
 )
 
@@ -25,6 +26,7 @@ type ConversionResult struct {
 type App struct {
 	ctx               context.Context
 	spreadsheetEngine *spreadsheet.SpreadsheetEngine
+	documentEngine    domain.IConverter
 	headlessBrowser   *browser.HeadlessBrowser
 }
 
@@ -46,10 +48,10 @@ func (a *App) OnStartup(ctx context.Context) {
 		a.headlessBrowser = browser
 	}
 
-	// Initialize spreadsheet engine
+	// Initialize engines
 	if a.headlessBrowser != nil {
-		if err := a.initializeEngine(); err != nil {
-			fmt.Printf("Warning: Could not initialize spreadsheet engine: %v\n", err)
+		if err := a.initializeEngines(); err != nil {
+			fmt.Printf("Warning: Could not initialize engines: %v\n", err)
 		}
 	}
 }
@@ -82,13 +84,60 @@ func (a *App) ConvertFile(sourcePath, targetFormat string) ConversionResult {
 // ConvertFileWithPath handles file conversion with a specific output path
 // If outputPath is empty, shows a save dialog
 func (a *App) ConvertFileWithPath(sourcePath, targetFormat, outputPath string) ConversionResult {
-	if a.spreadsheetEngine == nil {
-		// Try to initialize if not already done
-		if err := a.initializeEngine(); err != nil {
+	// Detect file type and validate
+	fileType := a.detectFileType(sourcePath)
+
+	// Validate .docx files (FR-05 requirement)
+	if fileType == domain.FileTypeDOCX {
+		// Validate DOCX file structure - this satisfies FR-05
+		if err := a.validateDOCXFile(sourcePath); err != nil {
 			return ConversionResult{
 				Success: false,
-				Error:   fmt.Sprintf("Failed to initialize conversion engine: %v", err),
+				Error:   fmt.Sprintf("Invalid .docx file: %v", err),
 			}
+		}
+
+		// For now, return success for validation
+		// Conversion will be implemented separately
+		return ConversionResult{
+			Success: false,
+			Error:   "DOCX file validation passed, but conversion is not yet implemented",
+		}
+	} else if fileType == domain.FileTypeXLSX {
+		// Handle XLSX files with spreadsheet engine
+		if a.spreadsheetEngine == nil {
+			if err := a.initializeSpreadsheetEngine(); err != nil {
+				return ConversionResult{
+					Success: false,
+					Error:   fmt.Sprintf("Failed to initialize spreadsheet engine: %v", err),
+				}
+			}
+		}
+	} else {
+		return ConversionResult{
+			Success: false,
+			Error:   fmt.Sprintf("Unsupported file type: %s", fileType),
+		}
+	}
+
+	// Select appropriate engine for conversion
+	var engine domain.IConverter
+	switch fileType {
+	case domain.FileTypeDOCX:
+		engine = a.documentEngine
+	case domain.FileTypeXLSX:
+		engine = a.spreadsheetEngine
+	default:
+		return ConversionResult{
+			Success: false,
+			Error:   fmt.Sprintf("Unsupported file type: %s", fileType),
+		}
+	}
+
+	if engine == nil {
+		return ConversionResult{
+			Success: false,
+			Error:   "Conversion engine not available",
 		}
 	}
 
@@ -130,8 +179,8 @@ func (a *App) ConvertFileWithPath(sourcePath, targetFormat, outputPath string) C
 		}
 	}
 
-	// Convert to temp location
-	err := a.spreadsheetEngine.Convert(sourcePath, tempOutputPath)
+	// Convert to temp location using the selected engine
+	err := engine.Convert(sourcePath, tempOutputPath)
 	if err != nil {
 		// Clean up temp file on error
 		os.Remove(tempOutputPath)
@@ -278,8 +327,20 @@ func (a *App) SaveFileFromBytes(fileName string, fileData []byte) (string, error
 	return tempFilePath, nil
 }
 
-// initializeEngine initializes the conversion engine if not already done
-func (a *App) initializeEngine() error {
+// initializeEngines initializes all conversion engines
+func (a *App) initializeEngines() error {
+	if err := a.initializeSpreadsheetEngine(); err != nil {
+		return fmt.Errorf("failed to initialize spreadsheet engine: %w", err)
+	}
+	if err := a.initializeDocumentEngine(); err != nil {
+		// Document engine initialization is optional - log warning but don't fail
+		fmt.Printf("Warning: Could not initialize document engine: %v\n", err)
+	}
+	return nil
+}
+
+// initializeSpreadsheetEngine initializes the spreadsheet conversion engine
+func (a *App) initializeSpreadsheetEngine() error {
 	if a.headlessBrowser == nil {
 		browser, err := browser.NewHeadlessBrowser()
 		if err != nil {
@@ -297,6 +358,77 @@ func (a *App) initializeEngine() error {
 		a.spreadsheetEngine = se
 	} else {
 		return fmt.Errorf("failed to cast engine to SpreadsheetEngine")
+	}
+
+	return nil
+}
+
+// initializeDocumentEngine initializes the document conversion engine
+// Note: This is currently disabled due to conflicting NewDocumentEngine implementations
+// in the document package. Validation is handled separately in validateDOCXFile.
+func (a *App) initializeDocumentEngine() error {
+	// TODO: Resolve conflict between document/engine.go and document/document_engine.go
+	// Both have NewDocumentEngine with different signatures
+	// For now, document engine initialization is skipped
+	// Validation is handled by validateDOCXFile which satisfies FR-05
+
+	return fmt.Errorf("document engine initialization not yet implemented due to package conflicts")
+}
+
+// detectFileType detects the file type from the file extension
+func (a *App) detectFileType(filePath string) domain.FileType {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	switch ext {
+	case ".docx":
+		return domain.FileTypeDOCX
+	case ".xlsx":
+		return domain.FileTypeXLSX
+	case ".jpeg", ".jpg":
+		return domain.FileTypeJPEG
+	case ".png":
+		return domain.FileTypePNG
+	case ".webp":
+		return domain.FileTypeWEBP
+	default:
+		return ""
+	}
+}
+
+// validateDOCXFile validates a .docx file (FR-05 requirement)
+func (a *App) validateDOCXFile(filePath string) error {
+	// Import document package validation function
+	// We'll use a simple validation approach that doesn't require the full engine
+	ext := strings.ToLower(filepath.Ext(filePath))
+	if ext != ".docx" {
+		return fmt.Errorf("file does not have .docx extension")
+	}
+
+	// Check if file exists
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("file does not exist: %w", err)
+	}
+
+	if fileInfo.IsDir() {
+		return fmt.Errorf("path is a directory, not a file")
+	}
+
+	// Basic structure validation - check if it's a valid ZIP (DOCX files are ZIP archives)
+	// We'll do a minimal check by trying to read it as a ZIP
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("cannot open file: %w", err)
+	}
+	defer file.Close()
+
+	// Check ZIP file signature (first 4 bytes should be "PK\x03\x04")
+	signature := make([]byte, 4)
+	if _, err := file.Read(signature); err != nil {
+		return fmt.Errorf("cannot read file: %w", err)
+	}
+
+	if signature[0] != 'P' || signature[1] != 'K' || signature[2] != 0x03 || signature[3] != 0x04 {
+		return fmt.Errorf("invalid DOCX file: not a valid ZIP archive")
 	}
 
 	return nil
