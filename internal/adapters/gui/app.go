@@ -221,7 +221,7 @@ func (a *App) BatchConvertFiles(files []string, targetFormat string) []Conversio
 	// Use parallel processing for homogeneous batches
 	if allSameType {
 		switch firstType {
-		case domain.FileTypeJPEG, domain.FileTypePNG:
+		case domain.FileTypeJPEG, domain.FileTypePNG, domain.FileTypeWEBP:
 			// All files are images - use parallel image conversion
 			if a.imageEngine != nil {
 				if imgEngine, ok := a.imageEngine.(*image.ImageEngine); ok {
@@ -569,6 +569,10 @@ func (a *App) initializeEngines() error {
 		// Document engine initialization is optional - log warning but don't fail
 		a.logger.Error("Could not initialize document engine", err)
 	}
+	if err := a.initializeImageEngine(); err != nil {
+		// Image engine initialization is optional - log warning but don't fail
+		a.logger.Error("Could not initialize image engine", err)
+	}
 	return nil
 }
 
@@ -641,6 +645,7 @@ func (a *App) initializeConverterService() error {
 	if a.imageEngine != nil {
 		engines[domain.FileTypeJPEG] = a.imageEngine
 		engines[domain.FileTypePNG] = a.imageEngine
+		engines[domain.FileTypeWEBP] = a.imageEngine
 	}
 
 	// Create ConverterService
@@ -666,6 +671,8 @@ func (a *App) detectFileType(filePath string) domain.FileType {
 		return domain.FileTypeJPEG
 	case ".png":
 		return domain.FileTypePNG
+	case ".webp":
+		return domain.FileTypeWEBP
 	default:
 		return ""
 	}
@@ -677,7 +684,7 @@ func (a *App) validateDOCXFile(filePath string) error {
 	return document.ValidateDOCX(filePath)
 }
 
-// validateImageFile validates a JPEG or PNG image file (FR-08 requirement)
+// validateImageFile validates a JPEG, PNG, or WebP image file (FR-08 requirement)
 func (a *App) validateImageFile(filePath string, fileType domain.FileType) error {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
@@ -690,6 +697,10 @@ func (a *App) validateImageFile(filePath string, fileType domain.FileType) error
 	case domain.FileTypePNG:
 		if ext != ".png" {
 			return fmt.Errorf("file does not have .png extension")
+		}
+	case domain.FileTypeWEBP:
+		if ext != ".webp" {
+			return fmt.Errorf("file does not have .webp extension")
 		}
 	default:
 		return fmt.Errorf("unsupported image file type: %s", fileType)
@@ -713,7 +724,7 @@ func (a *App) validateImageFile(filePath string, fileType domain.FileType) error
 	defer file.Close()
 
 	// Read first few bytes to check file signature
-	signature := make([]byte, 8)
+	signature := make([]byte, 12)
 	if _, err := file.Read(signature); err != nil {
 		return fmt.Errorf("cannot read file: %w", err)
 	}
@@ -732,6 +743,14 @@ func (a *App) validateImageFile(filePath string, fileType domain.FileType) error
 			if signature[i] != pngSignature[i] {
 				return fmt.Errorf("invalid PNG file: incorrect file signature")
 			}
+		}
+	}
+
+	// Validate WebP signature: RIFF....WEBP
+	if fileType == domain.FileTypeWEBP {
+		// WebP files start with "RIFF" followed by 4 bytes of file size, then "WEBP"
+		if string(signature[0:4]) != "RIFF" || string(signature[8:12]) != "WEBP" {
+			return fmt.Errorf("invalid WebP file: incorrect file signature")
 		}
 	}
 

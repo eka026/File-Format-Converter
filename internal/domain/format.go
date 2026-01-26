@@ -7,6 +7,7 @@ const (
 	FormatPDF  Format = "PDF"
 	FormatHTML Format = "HTML"
 	FormatPNG  Format = "PNG"
+	FormatWEBP Format = "WEBP"
 )
 
 // FileType represents input file types
@@ -17,5 +18,6 @@ const (
 	FileTypeDOCX FileType = "DOCX"
 	FileTypeJPEG FileType = "JPEG"
 	FileTypePNG  FileType = "PNG"
+	FileTypeWEBP FileType = "WEBP"
 )
 

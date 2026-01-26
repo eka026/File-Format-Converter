@@ -1,12 +1,14 @@
 module github.com/eka026/File-Format-Converter
 
-go 1.22.0
+go 1.22.2
 
 require (
+	github.com/HugoSmits86/nativewebp v1.2.1
 	github.com/disintegration/imaging v1.6.2
 	github.com/go-rod/rod v0.114.7
 	github.com/wailsapp/wails/v2 v2.11.0
 	github.com/xuri/excelize/v2 v2.8.0
+	golang.org/x/image v0.24.0
 )
 
 require (
@@ -44,7 +46,6 @@ require (
 	github.com/ysmood/gson v0.7.3 // indirect
 	github.com/ysmood/leakless v0.8.0 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
-	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect

@@ -219,6 +219,7 @@ func (s *ConverterService) GetSupportedFormats() []Format {
 		FormatPDF,
 		FormatHTML,
 		FormatPNG,
+		FormatWEBP,
 	}
 }
 
@@ -346,6 +347,8 @@ func (s *ConverterService) detectFileType(filePath string) FileType {
 		return FileTypeJPEG
 	case ".png":
 		return FileTypePNG
+	case ".webp":
+		return FileTypeWEBP
 	default:
 		return ""
 	}
